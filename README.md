@@ -59,13 +59,12 @@ python -m http.server 8000
    Ao lado aparece a página atual e a faixa exibida (ex.: *Página 1 de 4 · 1–25 de 87 itens*).
    Trocar o filtro, a busca, a visão ou o tamanho da página volta para a primeira página.
 5. **Alternar a visão** — **Todos os itens** mostra um item por linha; **Por código do
-   produto** agrupa os itens pelo `cProd` (código do produto do XML, ou a coluna de código
-   da planilha), mostrando no cabeçalho do grupo o NCM, a descrição, o par *declarado →
-   correto*, a situação e a quantidade de itens. **Nada se repete**: o que é igual em todos
-   os itens do grupo aparece uma vez no cabeçalho, e cada linha traz só o que varia (nota,
-   item, data e, quando houver, o NCM, o par e a situação daquele item). Se o mesmo produto
-   vier com CST/cClassTrib diferentes em notas diferentes, o grupo fica marcado em âmbar.
-   Arquivos sem a coluna de código são agrupados pelo NCM.
+   produto** usa **a mesma tabela**, com as mesmas colunas, mas ordenada por `cProd`
+   (código do produto do XML, ou a coluna de código da planilha) e com uma **linha
+   separadora** por produto: código, NCM, descrição, situação e quantidade de itens. Se o
+   mesmo produto vier com CST/cClassTrib declarados diferentes em notas diferentes, a
+   quantidade aparece em âmbar (*2 tributações declaradas*). Arquivos sem a coluna de
+   código são agrupados pelo NCM.
 6. **Escolher a tributação** — quando o NCM tem mais de uma possibilidade permitida, a
    coluna `Correto` mostra um seletor com todas as opções; no detalhe do item há o botão
    **Usar esta tributação** em cada possibilidade (e **Voltar à sugestão automática**).
