@@ -25,6 +25,10 @@ const S = {
 
 const $ = (id) => document.getElementById(id);
 
+/* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
+ * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
+const VERSAO = "2026.10.21";
+
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
 
@@ -107,11 +111,11 @@ async function carregarBase() {
   mostrarStatus("Carregando base de classificação tributária…", "carregando");
   try {
     const [cat, regras] = await Promise.all([
-      fetch("data/cst-cclasstrib.json").then((r) => {
+      fetch(`data/cst-cclasstrib.json?v=${VERSAO}`).then((r) => {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       }),
-      fetch("data/ncm-regras.json").then((r) => {
+      fetch(`data/ncm-regras.json?v=${VERSAO}`).then((r) => {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       }),
@@ -130,7 +134,7 @@ async function carregarBase() {
 
 async function carregarDescricoes() {
   try {
-    const r = await fetch("data/ncm-descricoes.json");
+    const r = await fetch(`data/ncm-descricoes.json?v=${VERSAO}`);
     if (!r.ok) throw new Error("HTTP " + r.status);
     S.desc = await r.json();
   } catch (e) {
@@ -1338,8 +1342,12 @@ let unrarPronto = null;
 function carregarUnrar() {
   if (!unrarPronto) {
     unrarPronto = (async () => {
-      const modulo = await import(new URL("assets/vendor/unrar/index.esm.js", document.baseURI).href);
-      const resposta = await fetch(new URL("assets/vendor/unrar/unrar.wasm", document.baseURI).href);
+      const modulo = await import(
+        new URL(`assets/vendor/unrar/index.esm.js?v=${VERSAO}`, document.baseURI).href
+      );
+      const resposta = await fetch(
+        new URL(`assets/vendor/unrar/unrar.wasm?v=${VERSAO}`, document.baseURI).href
+      );
       if (!resposta.ok) throw new Error("não foi possível baixar o descompactador de RAR");
       return { modulo, wasmBinary: await resposta.arrayBuffer() };
     })().catch((e) => {

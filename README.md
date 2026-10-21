@@ -22,6 +22,11 @@ Publicação pelo próprio GitHub Pages, direto da branch `main` (sem workflow d
 Cada `push` na `main` republica o site automaticamente (o `.nojekyll` mantém os
 `data/*.json` servidos sem processamento do Jekyll).
 
+O cache do navegador é contornado por um parâmetro de versão nos assets: os links de CSS/JS
+em `index.html` usam `?v=AAAAMMDD` e `assets/app.js` repete o valor na constante `VERSAO`
+(usada também nos `data/*.json` e no `unrar`). Ao publicar uma alteração, atualize os dois
+com a mesma data — ou com o hash curto do commit.
+
 ## Uso local
 
 O site precisa de HTTP (o navegador bloqueia `fetch` de JSON em `file://`):
