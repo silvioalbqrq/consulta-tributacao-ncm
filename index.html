@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conferência IBS/CBS — NCM × CST × cClassTrib</title>
+<meta name="description" content="Confira a tributação de IBS e CBS de NF-e, NFC-e ou planilha Excel: o site cruza o NCM de cada item com a base oficial de CST e cClassTrib e aponta divergências.">
+<meta property="og:title" content="Conferência IBS/CBS — NCM × CST × cClassTrib">
+<meta property="og:description" content="Upload de XML (NF-e/NFC-e) ou planilha para conferir CST e cClassTrib por NCM na base oficial do IBS/CBS.">
+<meta property="og:type" content="website">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<header class="topo">
+  <div class="wrap">
+    <p class="marca">VMF Contabilidade</p>
+    <h1>Conferência <span>IBS / CBS</span> por NCM<small style="font-weight:400;color:#c8d6e5;font-size:.62em;display:block;margin-top:6px">CST × cClassTrib a partir de XML de NF-e/NFC-e ou planilha</small></h1>
+    <p class="sub">Envie os arquivos e confira, item a item, se o CST e o cClassTrib informados correspondem ao NCM na base de classificação tributária do IBS/CBS. Nenhum arquivo sai do seu computador: todo o processamento é feito no navegador.</p>
+    <div class="fontes">
+      <span>Base: Portal da Conformidade Fácil (SEFAZ-RS)</span>
+      <span id="metaSnapshot">IT 2025.002</span>
+      <span id="metaNcm">— NCMs com regra</span>
+      <span id="metaGerado">—</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="entradas">
+
+    <section class="card" id="cardUpload">
+      <header>
+        <h2><span class="passo">1</span>Enviar XML ou planilha</h2>
+      </header>
+      <p class="ajuda">XML de NF-e/NFC-e (pode enviar vários de uma vez) ou planilha <b>.xlsx</b>, <b>.xls</b> ou <b>.csv</b> com uma coluna de NCM.</p>
+
+      <div class="zona" id="zona" tabindex="0" role="button" aria-label="Selecionar arquivos XML ou planilha">
+        <div class="icone" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <strong>Arraste os arquivos aqui ou clique para selecionar</strong>
+        <span>XML · XLSX · XLS · CSV</span>
+        <small>Para muitas notas, selecione todos os XML de uma pasta de uma só vez.</small>
+        <input type="file" id="arquivos" multiple accept=".xml,.xlsx,.xls,.csv,text/xml,application/xml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv">
+      </div>
+
+      <ul class="lista-arquivos" id="listaArquivos" hidden></ul>
+
+      <div class="acoes">
+        <button type="button" class="btn primario" id="btnProcessar" disabled>Conferir tributação</button>
+        <button type="button" class="btn" id="btnLimpar" disabled>Limpar</button>
+      </div>
+    </section>
+
+    <section class="card" id="cardManual">
+      <header>
+        <h2><span class="passo">2</span>Consultar um NCM</h2>
+      </header>
+      <p class="ajuda">Pesquise a tributação de um NCM sem enviar arquivo. Aceita 4 a 8 dígitos; a busca por prefixo lista os NCMs da base.</p>
+      <form class="campo" id="formManual" autocomplete="off">
+        <input id="ncmManual" type="text" inputmode="numeric" placeholder="Ex.: 19030000" aria-label="Código NCM" maxlength="12">
+        <button type="submit" class="btn primario">Consultar</button>
+      </form>
+      <p class="exemplos">Exemplos:
+        <button type="button" data-ncm="19030000">19030000 tapioca</button>
+        <button type="button" data-ncm="10062010">10062010 arroz</button>
+        <button type="button" data-ncm="22030000">22030000 cerveja</button>
+      </p>
+      <div id="manualResultado" aria-live="polite"></div>
+    </section>
+
+  </div>
+
+  <section id="status" class="status" hidden></section>
+
+  <section id="resultados" aria-live="polite"></section>
+
+</main>
+
+<dialog id="dlg" aria-labelledby="dlgTitulo">
+  <div class="dlg-head">
+    <strong id="dlgTitulo">Detalhe do item</strong>
+    <button type="button" id="dlgFechar" class="btn" autofocus>Fechar ✕</button>
+  </div>
+  <div class="dlg-corpo" id="dlgCorpo"></div>
+</dialog>
+
+<footer class="rodape">
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>Como o cálculo é feito</h4>
+        <p>O NCM de cada item é procurado nos anexos da classificação tributária do IBS/CBS.</p>
+        <p>Sem vínculo nos anexos, a tributação é integral (CST 000 / cClassTrib 000001).</p>
+        <p>Com vínculo, o site compara o par declarado com as possibilidades <b>permitidas</b> e mostra as <b>vedadas</b> quando existirem.</p>
+      </div>
+      <div>
+        <h4>Fonte dos dados</h4>
+        <p>Portal da Conformidade Fácil — SEFAZ-RS</p>
+        <p><a href="https://dfe-portal.svrs.rs.gov.br/CFF/ClassificacaoTributaria" target="_blank" rel="noopener">dfe-portal.svrs.rs.gov.br/CFF/ClassificacaoTributaria</a></p>
+        <p>Espelho de consulta: <a href="https://silvioalbqrq.github.io/cst-cclasstrib/" target="_blank" rel="noopener">silvioalbqrq.github.io/cst-cclasstrib</a></p>
+      </div>
+      <div>
+        <h4>Privacidade</h4>
+        <p>Os arquivos são lidos localmente pelo navegador.</p>
+        <p>Nada é enviado, gravado ou compartilhado.</p>
+        <p>Para atualizar a base: <code>python scripts/atualizar_base.py</code></p>
+      </div>
+    </div>
+    <p class="dica-fonte">Consulta de apoio, sem vínculo com SEFAZ ou Receita Federal. Antes de usar fiscalmente, confirme a classificação no portal oficial e avalie a condição de uso de cada produto (os anexos podem alcançar apenas parte dos itens de um mesmo NCM).</p>
+  </div>
+</footer>
+
+<script src="assets/vendor/xlsx.full.min.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
