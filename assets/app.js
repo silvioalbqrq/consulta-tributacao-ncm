@@ -29,7 +29,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.21b";
+const VERSAO = "2026.10.21c";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -763,11 +763,14 @@ function renderizar() {
   S.pagina = Math.min(Math.max(1, S.pagina), totalPaginas);
   const inicio = (S.pagina - 1) * S.tamanhoPagina;
   const visiveis = linhas.slice(inicio, inicio + S.tamanhoPagina);
-  const unidade = grupos ? (linhas.length === 1 ? "tributação" : "tributações") : linhas.length === 1 ? "item" : "itens";
+  const singular = grupos ? "tributação" : "item";
+  const plural = grupos ? "tributações" : "itens";
+  const unidade = linhas.length === 1 ? singular : plural;
+  const rotuloTamanho = grupos ? "Tributações por página" : "Itens por página";
   const faixa = linhas.length
     ? `${inicio + 1}–${inicio + visiveis.length} de ${linhas.length} ${unidade}`
     : `0 ${unidade}`;
-  const opcoesTamanho = PAGINAS.map(
+  const opcoesTamanho = TAMANHOS_PAGINA.map(
     (n) => `<option value="${n}"${n === S.tamanhoPagina ? " selected" : ""}>${n}</option>`
   ).join("");
 
@@ -815,7 +818,7 @@ function renderizar() {
       </div>
       <div class="paginacao">
         <label class="por-pagina">Por página
-          <select id="tamanhoPagina" aria-label="Itens por página">${opcoesTamanho}</select>
+          <select id="tamanhoPagina" aria-label="${rotuloTamanho}">${opcoesTamanho}</select>
         </label>
         <button type="button" class="btn" id="pagAnterior"${S.pagina <= 1 ? " disabled" : ""}>‹ Anterior</button>
         <span class="pag-info">Página ${S.pagina} de ${totalPaginas} · ${faixa}</span>
@@ -909,7 +912,22 @@ function renderizar() {
   });
 }
 
-const PAGINAS = [10, 25, 50, 100];
+const TAMANHOS_PAGINA = [10, 25, 50, 100];
+
+/** Descrição do produto: a que vem do arquivo ou a da base de NCM. */
+function descricaoItem(r) {
+  return r.desc || descNcm(r.ncm);
+}
+
+/** Contexto do item nas listas: origem, nota/série, item e (opcional) data de emissão. */
+function contextoItem(r, { origem = true, data = false } = {}) {
+  const partes = [];
+  if (origem && r.origem) partes.push(r.origem);
+  if (r.nota) partes.push(`NF ${r.nota}${r.serie ? "/" + r.serie : ""}`);
+  if (r.item) partes.push(`item ${r.item}`);
+  if (data && r.data) partes.push(dataBR(r.data));
+  return partes.join(" · ");
+}
 
 /** Corpo da tabela (visão "Todos os itens") com a página atual. */
 function tabelaHtml(lista, indiceGlobal) {
@@ -938,17 +956,10 @@ function grupoHtml(g, indiceGlobal) {
   const itens = g.itens
     .map((r) => {
       const a = r.analise || {};
-      const desc = r.desc || descNcm(r.ncm);
-      const nota = [
-        r.origem,
-        r.nota ? `NF ${r.nota}${r.serie ? "/" + r.serie : ""}` : "",
-        r.item ? `item ${r.item}` : "",
-      ]
-        .filter(Boolean)
-        .join(" · ");
+      const desc = descricaoItem(r);
       return `<li data-i="${indiceGlobal.get(r)}" tabindex="0">
         <span class="g-ncm">${esc(r.ncm || "—")}</span>
-        <span class="g-desc">${esc(desc) || "—"}<small>${esc(nota)}</small></span>
+        <span class="g-desc">${esc(desc) || "—"}<small>${esc(contextoItem(r))}</small></span>
         <span class="g-decl">declarado ${esc(a.declCst || "—")}/${esc(a.declCc || "—")}</span>
       </li>`;
     })
@@ -970,6 +981,7 @@ function grupoHtml(g, indiceGlobal) {
 /** Agrupa os itens pela tributação correta (par CST/cClassTrib + situação). */
 function agruparPorTributacao(lista) {
   const ordem = { div: 0, invalido: 1, revisar: 2, ok: 3, "sem-regra": 4 };
+  const peso = (status) => ordem[status] ?? 9;
   const mapa = new Map();
   for (const r of lista) {
     const a = r.analise || {};
@@ -980,15 +992,14 @@ function agruparPorTributacao(lista) {
     const chave = `${status}|${cst}|${cc}`;
     let g = mapa.get(chave);
     if (!g) {
-      g = { chave, cst, cc, status, manual: false, itens: [] };
+      g = { cst, cc, status, manual: false, itens: [] };
       mapa.set(chave, g);
     }
     g.itens.push(r);
     if (a.manual) g.manual = true;
   }
   return Array.from(mapa.values()).sort((x, y) => {
-    const d =
-      (ordem[x.status] == null ? 9 : ordem[x.status]) - (ordem[y.status] == null ? 9 : ordem[y.status]);
+    const d = peso(x.status) - peso(y.status);
     if (d) return d;
     return `${x.cst}${x.cc}`.localeCompare(`${y.cst}${y.cc}`);
   });
@@ -1004,14 +1015,8 @@ function linhaTabela(r, indice) {
   const i = indice;
   const a = r.analise || {};
   const s = SELOS[a.status] || SELOS.revisar;
-  const desc = r.desc || descNcm(r.ncm);
-  const notaTxt = [
-    r.nota ? `NF ${esc(r.nota)}${r.serie ? "/" + esc(r.serie) : ""}` : "",
-    r.item ? `item ${esc(r.item)}` : "",
-    r.data ? dataBR(r.data) : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const desc = descricaoItem(r);
+  const notaTxt = esc(contextoItem(r, { origem: false, data: true }));
 
   let correto = "";
   if (a.esperados && a.esperados.length) {
@@ -1429,15 +1434,8 @@ function impressaoResumo(lista) {
       const itens = g.itens
         .map((r) => {
           const a = r.analise || {};
-          const desc = r.desc || descNcm(r.ncm);
-          const nota = [
-            r.origem,
-            r.nota ? `NF ${r.nota}${r.serie ? "/" + r.serie : ""}` : "",
-            r.item ? `item ${r.item}` : "",
-          ]
-            .filter(Boolean)
-            .map(esc)
-            .join(" · ");
+          const desc = descricaoItem(r);
+          const nota = esc(contextoItem(r));
           return `<tr><td class="imp-ncm">${esc(r.ncm || "—")}</td><td>${esc(desc) || "—"}</td><td>${nota}</td><td class="imp-num">${esc(
             a.declCst || "—"
           )}/${esc(a.declCc || "—")}</td></tr>`;
@@ -1459,18 +1457,10 @@ function impressaoResumo(lista) {
 function linhaImpressao(r) {
   const a = r.analise || {};
   const s = SELOS[a.status] || SELOS.revisar;
-  const desc = r.desc || descNcm(r.ncm);
+  const desc = descricaoItem(r);
   const p = a.principal || (a.esperados && a.esperados[0]) || null;
   const correto = p ? `${esc(p.cst)} / ${esc(p.cc)}${a.manual ? " (escolha manual)" : ""}` : "—";
-  const nota = [
-    r.origem,
-    r.nota ? `NF ${r.nota}${r.serie ? "/" + r.serie : ""}` : "",
-    r.item ? `item ${r.item}` : "",
-    r.data ? dataBR(r.data) : "",
-  ]
-    .filter(Boolean)
-    .map(esc)
-    .join(" · ");
+  const nota = esc(contextoItem(r, { data: true }));
   return `<tr>
     <td>${nota}</td>
     <td><b>${esc(r.ncm || "—")}</b><br>${esc(desc) || "—"}</td>
