@@ -13,23 +13,14 @@ Tudo roda no navegador: nenhum arquivo é enviado a servidor.
 
 ## Uso online (GitHub Pages)
 
-O repositório já inclui o workflow `.github/workflows/pages.yml`, que publica o site a
-cada `push` na branch `main`.
+Publicação pelo próprio GitHub Pages, direto da branch `main` (sem workflow de deploy):
 
-1. Em **Settings → Pages**, escolha **Source: GitHub Actions**.
-2. Em **Settings → Actions → General → Workflow permissions**, marque **Read and write
-   permissions** e salve (o deploy precisa de `pages: write` e `id-token: write`).
-3. Faça um `push` na `main` (ou rode o workflow em **Actions → Deploy no GitHub Pages → Run workflow**).
-4. Acesse `https://<seu-usuario>.github.io/<repositório>/`.
+1. Em **Settings → Pages**, escolha **Source: Deploy from a branch**.
+2. **Branch:** `main` · **Folder:** `/ (root)` → **Save**.
+3. Acesse `https://<seu-usuario>.github.io/<repositório>/`.
 
-O workflow tem `enablement: true` e tenta habilitar o Pages sozinho, mas o token do
-próprio Actions não tem permissão para **criar** o site: se o Pages ainda estiver
-desligado, esse passo falha com
-`Resource not accessible by integration` (código 403). Nesse caso, faça o passo 1 ou o
-passo 2 acima e rode o workflow novamente.
-
-Alternativa sem Actions: em **Settings → Pages**, escolha **Deploy from a branch**,
-branch `main`, pasta `/ (root)`.
+Cada `push` na `main` republica o site automaticamente (o `.nojekyll` mantém os
+`data/*.json` servidos sem processamento do Jekyll).
 
 ## Uso local
 
