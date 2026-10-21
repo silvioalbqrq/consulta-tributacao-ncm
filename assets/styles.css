@@ -511,6 +511,15 @@ section { scroll-margin-top: 16px; }
 .paginacao .btn { padding: 6px 11px; font-size: 12.5px; font-weight: 600; }
 .paginacao .btn:disabled { opacity: .45; cursor: default; }
 
+/* barra de paginação no fim da lista */
+.barra-pag {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
 /* ---------- visão por tributação ---------- */
 .trib-grupos { display: grid; gap: 10px; }
 
@@ -612,6 +621,29 @@ table.resultado td.num { font-variant-numeric: tabular-nums; white-space: nowrap
 
 .produto { max-width: 300px; }
 .produto .desc { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* código do produto (cProd) informado no arquivo */
+.cod-prod {
+  display: inline-block;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--navy);
+  background: #eef4fa;
+  border: 1px solid #d8e4f0;
+  border-radius: 5px;
+  padding: 0 5px;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+
+.produto .cod-prod,
+.trib-grupo .cod-prod {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
 
 .par { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .par .rotulo { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; display: block; }
@@ -841,6 +873,7 @@ dialog#dlg::backdrop { background: rgba(9, 25, 42, .55); backdrop-filter: blur(2
   table.resultado { font-size: 12px; }
   table.resultado th, table.resultado td { padding: 8px; }
   .produto { max-width: 180px; }
+  .barra-pag { justify-content: flex-start; }
   .paginacao { width: 100%; justify-content: space-between; }
   .trib-grupo li { grid-template-columns: 96px minmax(0, 1fr); }
   .trib-grupo .g-decl { grid-column: 2; }
@@ -870,6 +903,15 @@ dialog#dlg::backdrop { background: rgba(9, 25, 42, .55); backdrop-filter: blur(2
 #areaImpressao .imp-tabela th { background: #eef2f7; font-weight: 700; }
 #areaImpressao .imp-tabela .imp-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 #areaImpressao .imp-tabela .imp-ncm { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+#areaImpressao .cod-prod {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-right: 4px;
+  font-size: 9.5px;
+  color: #333;
+}
 
 #areaImpressao .imp-grupo { margin: 0 0 14px; break-inside: avoid; }
 #areaImpressao .imp-grupo h2 { font-size: 12px; margin: 0 0 4px; }

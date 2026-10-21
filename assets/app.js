@@ -29,7 +29,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.21c";
+const VERSAO = "2026.10.21d";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -490,6 +490,7 @@ async function lerXml(file) {
         data,
         item: det.getAttribute("nItem") || "",
         ncm,
+        codProd: prod ? val(prod, "cProd") : "",
         desc: prod ? val(prod, "xProd") : "",
         cfop: prod ? val(prod, "CFOP") : "",
         cstIcms,
@@ -610,6 +611,7 @@ async function lerPlanilha(file) {
         data: m.data !== undefined ? linha[m.data] : "",
         item: m.item !== undefined ? String(linha[m.item] ?? "") : "",
         ncm: ncmTxt,
+        codProd: m.codProd !== undefined ? String(linha[m.codProd] ?? "").replace(/\.0$/, "").trim() : "",
         desc: String(desc ?? "").trim(),
         cfop: m.cfop !== undefined ? String(linha[m.cfop] ?? "") : "",
         cstIcms: m.cstIcms !== undefined ? codigoPad(linha[m.cstIcms], 2) : "",
@@ -742,8 +744,16 @@ function registroFiltrado(r) {
 
   if (!S.busca) return true;
   const alvo = norm(
-    [r.ncm, r.desc, r.nota, r.origem, a.declCc, a.declCst, a.esperados && a.esperados.map((e) => e.cc).join(" ")]
-      .join(" ")
+    [
+      r.ncm,
+      r.codProd,
+      r.desc,
+      r.nota,
+      r.origem,
+      a.declCc,
+      a.declCst,
+      a.esperados && a.esperados.map((e) => e.cc).join(" "),
+    ].join(" ")
   );
   return alvo.includes(S.busca);
 }
@@ -805,7 +815,7 @@ function renderizar() {
     <div class="barra">
       <div class="filtros" role="group" aria-label="Filtrar resultados">${chips}</div>
       <div class="busca-resultado">
-        <input id="buscaResultado" type="search" placeholder="Filtrar por NCM, produto, nota…" value="${esc(S.busca)}" aria-label="Filtrar resultados">
+        <input id="buscaResultado" type="search" placeholder="Filtrar por NCM, código, produto, nota…" value="${esc(S.busca)}" aria-label="Filtrar resultados">
         <button type="button" class="btn" id="btnCsv" title="Exporta todos os itens conferidos">CSV</button>
         <button type="button" class="btn dourado" id="btnXlsx" title="Exporta todos os itens conferidos">Baixar planilha</button>
         <button type="button" class="btn" id="btnImprimir" title="Imprimir a lista filtrada (todos os itens, não só esta página)">Imprimir</button>
@@ -816,6 +826,13 @@ function renderizar() {
         <button type="button" data-visao="itens" aria-pressed="${S.visao === "itens"}">Todos os itens</button>
         <button type="button" data-visao="resumo" aria-pressed="${S.visao === "resumo"}">Por tributação</button>
       </div>
+    </div>
+    ${
+      grupos
+        ? `<div class="trib-grupos">${gruposHtml(visiveis, indiceGlobal)}</div>`
+        : `<div class="tabela-wrap">${tabelaHtml(visiveis, indiceGlobal)}</div>`
+    }
+    <div class="barra-pag">
       <div class="paginacao">
         <label class="por-pagina">Por página
           <select id="tamanhoPagina" aria-label="${rotuloTamanho}">${opcoesTamanho}</select>
@@ -825,11 +842,6 @@ function renderizar() {
         <button type="button" class="btn" id="pagProxima"${S.pagina >= totalPaginas ? " disabled" : ""}>Próxima ›</button>
       </div>
     </div>
-    ${
-      grupos
-        ? `<div class="trib-grupos">${gruposHtml(visiveis, indiceGlobal)}</div>`
-        : `<div class="tabela-wrap">${tabelaHtml(visiveis, indiceGlobal)}</div>`
-    }
   `;
 
   alvo.querySelectorAll("[data-filtro]").forEach((b) =>
@@ -929,6 +941,13 @@ function contextoItem(r, { origem = true, data = false } = {}) {
   return partes.join(" · ");
 }
 
+/** Código do produto (cProd) informado no arquivo, quando existir. */
+function codigoProduto(r) {
+  if (!r.codProd) return "";
+  const cod = esc(r.codProd);
+  return `<span class="cod-prod" title="Código do produto (cProd) informado no arquivo: ${cod}">cód. ${cod}</span>`;
+}
+
 /** Corpo da tabela (visão "Todos os itens") com a página atual. */
 function tabelaHtml(lista, indiceGlobal) {
   if (!lista.length) return '<p class="vazio">Nenhum item para este filtro.</p>';
@@ -959,7 +978,7 @@ function grupoHtml(g, indiceGlobal) {
       const desc = descricaoItem(r);
       return `<li data-i="${indiceGlobal.get(r)}" tabindex="0">
         <span class="g-ncm">${esc(r.ncm || "—")}</span>
-        <span class="g-desc">${esc(desc) || "—"}<small>${esc(contextoItem(r))}</small></span>
+        <span class="g-desc">${codigoProduto(r)}${esc(desc) || "—"}<small>${esc(contextoItem(r))}</small></span>
         <span class="g-decl">declarado ${esc(a.declCst || "—")}/${esc(a.declCc || "—")}</span>
       </li>`;
     })
@@ -1047,7 +1066,7 @@ function linhaTabela(r, indice) {
 
   return `<tr data-i="${i}" tabindex="0">
     <td class="origem"><b title="${esc(r.origem)}">${esc(r.origem)}</b>${notaTxt || "—"}</td>
-    <td class="num"><b>${esc(r.ncm || "—")}</b><div class="produto"><span class="desc">${esc(desc) || "—"}</span></div></td>
+    <td class="num"><b>${esc(r.ncm || "—")}</b><div class="produto">${codigoProduto(r)}<span class="desc">${esc(desc) || "—"}</span></div></td>
     <td class="par"><span class="rotulo">CST / cClassTrib</span><span class="valor">${esc(a.declCst || "—")} <span class="cc">${esc(a.declCc || "—")}</span></span></td>
     <td class="par">${correto}</td>
     <td><span class="selo ${s.classe}">${s.texto}</span>${a.manual ? '<span class="selo info">ajustado</span>' : ""}${alerta}</td>
@@ -1297,8 +1316,8 @@ function nomeBase() {
 
 function cabecalho() {
   return [
-    "Origem", "Aba", "Nota", "Série", "Item", "NCM", "Descrição do produto", "Valor do item",
-    "CST decl.", "cClassTrib decl.", "CST correto", "cClassTrib correto",
+    "Origem", "Aba", "Nota", "Série", "Item", "Código do produto", "NCM", "Descrição do produto",
+    "Valor do item", "CST decl.", "cClassTrib decl.", "CST correto", "cClassTrib correto",
     "Situação", "Redução IBS", "Redução CBS", "Observação",
   ];
 }
@@ -1307,8 +1326,8 @@ function linhaExport(r) {
   const a = r.analise || {};
   const e = a.principal || (a.esperados && a.esperados[0]);
   return [
-    r.origem, r.aba || "", r.nota || "", r.serie || "", r.item || "", r.ncm || "",
-    r.desc || descNcm(r.ncm) || "",
+    r.origem, r.aba || "", r.nota || "", r.serie || "", r.item || "", r.codProd || "", r.ncm || "",
+    descricaoItem(r) || "",
     num(r.valor) ? num(r.valor) : "",
     a.declCst || "", a.declCc || "",
     e ? e.cst : "", e ? e.cc : "",
@@ -1330,8 +1349,9 @@ function exportarXlsx() {
   const todos = S.registros;
   const ws = XLSX.utils.aoa_to_sheet([cabecalho(), ...todos.map(linhaExport)]);
   ws["!cols"] = [
-    { wch: 28 }, { wch: 12 }, { wch: 9 }, { wch: 7 }, { wch: 6 }, { wch: 11 }, { wch: 42 }, { wch: 12 },
-    { wch: 9 }, { wch: 12 }, { wch: 9 }, { wch: 12 }, { wch: 18 }, { wch: 11 }, { wch: 11 }, { wch: 70 },
+    { wch: 28 }, { wch: 12 }, { wch: 9 }, { wch: 7 }, { wch: 6 }, { wch: 14 }, { wch: 11 }, { wch: 42 },
+    { wch: 12 }, { wch: 9 }, { wch: 12 }, { wch: 9 }, { wch: 12 }, { wch: 18 }, { wch: 11 }, { wch: 11 },
+    { wch: 70 },
   ];
   ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: todos.length, c: cabecalho().length - 1 } }) };
 
@@ -1340,7 +1360,7 @@ function exportarXlsx() {
 
   // Planilha para redigitação: só preenche quando a correção é inequívoca.
   const correcao = [
-    ["Origem", "Nota", "Item", "NCM", "Descrição", "CST IBS/CBS", "cClassTrib", "Situação", "Observação"],
+    ["Origem", "Nota", "Item", "Código do produto", "NCM", "Descrição", "CST IBS/CBS", "cClassTrib", "Situação", "Observação"],
   ];
   for (const r of todos) {
     const a = r.analise || {};
@@ -1356,7 +1376,7 @@ function exportarXlsx() {
     else observacao = `Não corrigido automaticamente. ${a.nota || ""}${opcoes ? " Opções: " + opcoes + "." : ""}`.trim();
 
     correcao.push([
-      r.origem, r.nota || "", r.item || "", r.ncm || "", r.desc || descNcm(r.ncm) || "",
+      r.origem, r.nota || "", r.item || "", r.codProd || "", r.ncm || "", descricaoItem(r) || "",
       corrigivel ? e.cst : a.declCst || "",
       corrigivel ? e.cc : a.declCc || "",
       (SELOS[a.status] || SELOS.revisar).texto,
@@ -1365,7 +1385,8 @@ function exportarXlsx() {
   }
   const ws2 = XLSX.utils.aoa_to_sheet(correcao);
   ws2["!cols"] = [
-    { wch: 28 }, { wch: 9 }, { wch: 6 }, { wch: 11 }, { wch: 42 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 60 },
+    { wch: 28 }, { wch: 9 }, { wch: 6 }, { wch: 14 }, { wch: 11 }, { wch: 42 }, { wch: 12 }, { wch: 12 },
+    { wch: 18 }, { wch: 60 },
   ];
   XLSX.utils.book_append_sheet(wb, ws2, "Corrigida");
 
@@ -1436,7 +1457,7 @@ function impressaoResumo(lista) {
           const a = r.analise || {};
           const desc = descricaoItem(r);
           const nota = esc(contextoItem(r));
-          return `<tr><td class="imp-ncm">${esc(r.ncm || "—")}</td><td>${esc(desc) || "—"}</td><td>${nota}</td><td class="imp-num">${esc(
+          return `<tr><td class="imp-ncm">${esc(r.ncm || "—")}</td><td>${codigoProduto(r)}${esc(desc) || "—"}</td><td>${nota}</td><td class="imp-num">${esc(
             a.declCst || "—"
           )}/${esc(a.declCc || "—")}</td></tr>`;
         })
@@ -1463,7 +1484,7 @@ function linhaImpressao(r) {
   const nota = esc(contextoItem(r, { data: true }));
   return `<tr>
     <td>${nota}</td>
-    <td><b>${esc(r.ncm || "—")}</b><br>${esc(desc) || "—"}</td>
+    <td><b>${esc(r.ncm || "—")}</b> ${codigoProduto(r)}<br>${esc(desc) || "—"}</td>
     <td class="imp-num">${esc(a.declCst || "—")} / ${esc(a.declCc || "—")}</td>
     <td class="imp-num">${correto}</td>
     <td>${s.texto}</td>

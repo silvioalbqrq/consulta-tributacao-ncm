@@ -6,6 +6,7 @@ tributária e o site mostra:
 
 - o **CST** e o **cClassTrib** esperados para o NCM;
 - se o par informado no arquivo está **conforme**, **divergente** ou precisa de **revisão**;
+- o **código do produto** (`cProd`) de cada item, quando o arquivo informa, também na busca;
 - todas as possibilidades **permitidas** e as **vedadas** para o NCM, com a condição de uso;
 - **alertas de valor** quando o IBS/CBS informado não reflete a redução do cClassTrib;
 - **paginação** (10, 25, 50 ou 100 itens por página) com as visões *todos os itens* e
@@ -50,11 +51,12 @@ python -m http.server 8000
    Depois, clique em **Conferir tributação**.
 2. **Conferir um NCM** — digite o código (4 a 8 dígitos) para consultar sem arquivo.
 3. **Filtrar** por divergentes, revisar, conformes, integral (sem regra), alertas de valor
-   ou ajustados (itens com tributação escolhida manualmente).
-4. **Percorrer o resultado** — a lista é paginada: escolha **10, 25, 50 ou 100 itens por
-   página** e navegue com **‹ Anterior** / **Próxima ›**. Ao lado aparece a página atual e a
-   faixa exibida (ex.: *Página 1 de 4 · 1–25 de 87 itens*). Trocar o filtro, a busca, a
-   visão ou o tamanho da página volta para a primeira página.
+   ou ajustados (itens com tributação escolhida manualmente). A busca aceita **código do
+   produto** (`cProd`), NCM, descrição, nota e nome do arquivo.
+4. **Percorrer o resultado** — a lista é paginada e os controles ficam **no fim da lista**:
+   escolha **10, 25, 50 ou 100 itens por página** e navegue com **‹ Anterior** / **Próxima ›**.
+   Ao lado aparece a página atual e a faixa exibida (ex.: *Página 1 de 4 · 1–25 de 87 itens*).
+   Trocar o filtro, a busca, a visão ou o tamanho da página volta para a primeira página.
 5. **Alternar a visão** — **Todos os itens** mostra um item por linha (mesmo quando vários
    têm a mesma tributação); **Por tributação** agrupa os itens pelo par CST/cClassTrib
    correto + situação, com a quantidade, os NCMs e a lista de cada grupo, para imprimir
@@ -78,6 +80,7 @@ A primeira linha com um cabeçalho de NCM é usada. São aceitos nomes como:
 | NCM | `NCM` |
 | CST IBS/CBS | `CST IBS/CBS`, `CST IBS`, `CST CBS` |
 | cClassTrib | `cClassTrib`, `Classificação Tributária` |
+| Código do produto | `Código do produto`, `Cód. Produto`, `cProd`, `Código`, `Cód` |
 | Produto | `Descrição Produto`, `Produto` |
 | Nota / item | `Número NF`, `Nota`, `Item` |
 | Valores (opcional) | `vBC`, `pIBSUF`, `vIBSUF`, `pCBS`, `vCBS` |
