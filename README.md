@@ -99,8 +99,9 @@ correta de cada código.
   (MIT, ~33 KB); só os arquivos XML/planilha são extraídos em memória.
 - **`.rar`**: descompactado com `node-unrar-js` 2.0.2 (MIT, build wasm). O `unrar.wasm`
   (~200 KB) só é baixado na primeira vez que um `.rar` é enviado.
-- **Limites de segurança**: até 3.000 arquivos e 300 MB descompactados por pacote.
-  RAR/ZIP protegido por senha não é suportado (o site avisa).
+- **Limite de segurança**: até 300 MB descompactados por pacote (sem limite de quantidade —
+  medido: 3.635 XMLs = 31 MB e ~75 MB de memória). RAR/ZIP protegido por senha não é suportado
+  (o site avisa).
 
 ## Como a conferência é feita
 

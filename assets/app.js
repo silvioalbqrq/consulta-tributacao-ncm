@@ -29,7 +29,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.21f";
+const VERSAO = "2026.10.21h";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -1511,7 +1511,8 @@ const TIPO_MIME = {
   xls: "application/vnd.ms-excel",
   csv: "text/csv",
 };
-const LIMITE_PACOTE_ARQUIVOS = 3000;
+/* Limite só por bytes (o que de fato pesa na memória). Contar arquivos barrava
+ * lotes legítimos de XML pequenos: 3.635 NFC-e = 31 MB e ~75 MB de heap. */
 const LIMITE_PACOTE_BYTES = 300 * 1024 * 1024;
 
 function extensao(nome) {
@@ -1571,9 +1572,6 @@ async function descompactarZip(file) {
     throw new Error("ZIP inválido, corrompido ou protegido por senha");
   }
   const nomes = Object.keys(entradas);
-  if (nomes.length > LIMITE_PACOTE_ARQUIVOS) {
-    throw new Error(`o ZIP tem mais de ${LIMITE_PACOTE_ARQUIVOS} arquivos compatíveis`);
-  }
   const saida = [];
   let total = 0;
   for (const nome of nomes) {
@@ -1639,9 +1637,6 @@ async function descompactarRar(file) {
       files: (h) => !h.flags.directory && entradaUtil(h.name),
     });
     for (const item of files) {
-      if (saida.length >= LIMITE_PACOTE_ARQUIVOS) {
-        throw new Error(`o RAR tem mais de ${LIMITE_PACOTE_ARQUIVOS} arquivos compatíveis`);
-      }
       total += item.extraction.length;
       if (total > LIMITE_PACOTE_BYTES) throw new Error("o RAR passa de 300 MB depois de descompactado");
       saida.push(arquivoDeBytes(item.extraction, item.fileHeader.name, file.name));
