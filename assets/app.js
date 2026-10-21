@@ -29,7 +29,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.21d";
+const VERSAO = "2026.10.21e";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -840,6 +840,7 @@ function renderizar() {
         <button type="button" class="btn" id="pagAnterior"${S.pagina <= 1 ? " disabled" : ""}>‹ Anterior</button>
         <span class="pag-info">Página ${S.pagina} de ${totalPaginas} · ${faixa}</span>
         <button type="button" class="btn" id="pagProxima"${S.pagina >= totalPaginas ? " disabled" : ""}>Próxima ›</button>
+        <button type="button" class="btn" id="pagUltima"${S.pagina >= totalPaginas ? " disabled" : ""} title="Ir para a última página">Última página »</button>
       </div>
     </div>
   `;
@@ -892,6 +893,13 @@ function renderizar() {
   if ($("pagProxima"))
     $("pagProxima").addEventListener("click", () => {
       S.pagina++;
+      renderizar();
+      irParaTabela();
+    });
+  if ($("pagUltima"))
+    $("pagUltima").addEventListener("click", () => {
+      if (S.pagina >= totalPaginas) return;
+      S.pagina = totalPaginas;
       renderizar();
       irParaTabela();
     });

@@ -54,7 +54,8 @@ python -m http.server 8000
    ou ajustados (itens com tributação escolhida manualmente). A busca aceita **código do
    produto** (`cProd`), NCM, descrição, nota e nome do arquivo.
 4. **Percorrer o resultado** — a lista é paginada e os controles ficam **no fim da lista**:
-   escolha **10, 25, 50 ou 100 itens por página** e navegue com **‹ Anterior** / **Próxima ›**.
+   escolha **10, 25, 50 ou 100 itens por página** e navegue com **‹ Anterior**, **Próxima ›**
+   e **Última página »** (vai direto para o fim da lista).
    Ao lado aparece a página atual e a faixa exibida (ex.: *Página 1 de 4 · 1–25 de 87 itens*).
    Trocar o filtro, a busca, a visão ou o tamanho da página volta para a primeira página.
 5. **Alternar a visão** — **Todos os itens** mostra um item por linha (mesmo quando vários
