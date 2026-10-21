@@ -36,8 +36,13 @@ python -m http.server 8000
 1. **Enviar arquivos** — arraste um ou vários XML de NF-e/NFC-e, ou uma planilha
    `.xlsx`, `.xls` ou `.csv`. Clique em **Conferir tributação**.
 2. **Conferir um NCM** — digite o código (4 a 8 dígitos) para consultar sem arquivo.
-3. **Filtrar** por divergentes, revisar, conformes, integral (sem regra) ou alertas de valor.
-4. **Exportar** em CSV ou planilha Excel (duas abas: `Conferência` e `Corrigida`).
+3. **Filtrar** por divergentes, revisar, conformes, integral (sem regra), alertas de valor
+   ou ajustados (itens com tributação escolhida manualmente).
+4. **Escolher a tributação** — quando o NCM tem mais de uma possibilidade permitida, a
+   coluna `Correto` mostra um seletor com todas as opções; no detalhe do item há o botão
+   **Usar esta tributação** em cada possibilidade (e **Voltar à sugestão automática**).
+   A escolha vale para a coluna `Correto`, para os contadores e para a aba `Corrigida`.
+5. **Exportar** em CSV ou planilha Excel (duas abas: `Conferência` e `Corrigida`).
    A exportação sempre inclui **todos os itens conferidos**, mesmo com um filtro aplicado na tela.
 
 ### Colunas reconhecidas na planilha
@@ -63,7 +68,9 @@ correta de cada código.
 2. **Um vínculo permitido** → o par informado precisa ser exatamente esse; se não for, é divergência.
 3. **Vários vínculos permitidos** → o item é **conforme** se o cClassTrib informado for um deles;
    se não for, fica em **revisar**, pois a escolha depende da condição de uso
-   (cesta básica, insumo agropecuário, dispositivo médico, etc.).
+   (cesta básica, insumo agropecuário, dispositivo médico, etc.). Nesse caso o seletor da
+   coluna `Correto` (ou os botões do detalhe) permite fixar a tributação do item; itens com
+   escolha manual passam a contar como corrigidos e recebem a marca **ajustado**.
 4. **cClassTrib vedado para o NCM** → divergência, com a indicação da restrição.
 5. **CST incompatível com o cClassTrib** → divergência, mesmo que o cClassTrib exista.
 6. **Valores** → quando o arquivo traz `vBC`, alíquotas e valores de IBS/CBS, o site aplica

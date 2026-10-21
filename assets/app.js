@@ -15,6 +15,7 @@ const S = {
   descPronto: false,
   arquivos: [],
   registros: [],
+  errosLeitura: [],
   filtro: "todos",
   busca: "",
   limite: 250,
@@ -243,7 +244,37 @@ function regrasDoNcm(ncm) {
 /* analise de um item                                                  */
 /* ------------------------------------------------------------------ */
 
+/** Analisa o item: regra do NCM + escolha manual de tributação, quando houver. */
 function analisarItem(reg) {
+  const analise = analisarBase(reg);
+  const opcoes = analise.esperados || [];
+  analise.principalAuto = analise.principal || opcoes[0] || null;
+  return aplicarEscolha(analise, reg);
+}
+
+/** Aplica a escolha manual do usuário entre as opções permitidas do NCM. */
+function aplicarEscolha(analise, reg) {
+  const escolha = codigoPad(reg.escolha, 6);
+  const opcoes = analise.esperados || [];
+  if (!escolha || opcoes.length < 2) return analise;
+  const cand = opcoes.find((o) => o.cc === escolha);
+  if (!cand) return analise;
+
+  analise.manual = true;
+  analise.principal = cand;
+  const compativel = analise.declCc === cand.cc && (!analise.declCst || analise.declCst === cand.cst);
+  if (compativel) {
+    analise.status = "ok";
+    analise.nota = `CST e cClassTrib compatíveis com o NCM (tributação escolhida manualmente entre ${opcoes.length} possibilidades).`;
+  } else {
+    analise.status = "div";
+    analise.nota = `Correção definida manualmente: CST ${cand.cst} / cClassTrib ${cand.cc}, escolhido entre ${opcoes.length} possibilidades do NCM.`;
+  }
+  analise.alertas = checarValores(reg, cand);
+  return analise;
+}
+
+function analisarBase(reg) {
   const ncm = digitos(reg.ncm);
   const declCst = codigoPad(reg.cst, 3);
   const declCc = codigoPad(reg.cc, 6);
@@ -625,6 +656,7 @@ async function processarArquivos() {
 
     for (const reg of registros) reg.analise = analisarItem(reg);
     S.registros = registros;
+    S.errosLeitura = erros;
     S.filtro = "todos";
     S.busca = "";
     S.limite = 250;
@@ -635,11 +667,7 @@ async function processarArquivos() {
       return;
     }
 
-    const resumo = contar();
-    let msg = `${registros.length} item(ns) de ${S.arquivos.length} arquivo(s) conferido(s): ${resumo.div} divergência(s), ${resumo.revisar} para revisar.`;
-    if (resumo.alertas) msg += ` ${resumo.alertas} item(ns) com alerta de valor.`;
-    if (erros.length) msg += ` Falha ao ler ${erros.length} arquivo(s): ${erros.join(" | ")}`;
-    mostrarStatus(msg, erros.length ? "erro" : resumo.div ? "erro" : "ok");
+    resumoStatus();
     renderizar();
     document.getElementById("resultados").scrollIntoView({ behavior: "smooth", block: "start" });
   } finally {
@@ -649,7 +677,7 @@ async function processarArquivos() {
 }
 
 function contar() {
-  const c = { total: S.registros.length, ok: 0, div: 0, revisar: 0, semRegra: 0, alertas: 0 };
+  const c = { total: S.registros.length, ok: 0, div: 0, revisar: 0, semRegra: 0, alertas: 0, ajustados: 0 };
   for (const r of S.registros) {
     const st = r.analise ? r.analise.status : "revisar";
     if (st === "ok") c.ok++;
@@ -657,6 +685,7 @@ function contar() {
     else if (st === "revisar") c.revisar++;
     else c.div++;
     if (r.analise && r.analise.alertas.length) c.alertas++;
+    if (r.analise && r.analise.manual) c.ajustados++;
   }
   return c;
 }
@@ -680,6 +709,17 @@ function mostrarStatus(msg, tipo) {
     `<span>${esc(msg)}</span>`;
 }
 
+/** Recalcula o resumo mostrado na barra de status (usado também após uma escolha manual). */
+function resumoStatus() {
+  if (!S.registros.length) return;
+  const c = contar();
+  let msg = `${c.total} item(ns) de ${S.arquivos.length} arquivo(s) conferido(s): ${c.div} divergência(s), ${c.revisar} para revisar.`;
+  if (c.ajustados) msg += ` ${c.ajustados} com tributação escolhida manualmente.`;
+  if (c.alertas) msg += ` ${c.alertas} item(ns) com alerta de valor.`;
+  if (S.errosLeitura.length) msg += ` Falha ao ler ${S.errosLeitura.length} arquivo(s): ${S.errosLeitura.join(" | ")}`;
+  mostrarStatus(msg, S.errosLeitura.length || c.div ? "erro" : "ok");
+}
+
 function registroFiltrado(r) {
   const a = r.analise || {};
   if (S.filtro === "div" && !["div", "invalido"].includes(a.status)) return false;
@@ -687,6 +727,7 @@ function registroFiltrado(r) {
   if (S.filtro === "ok" && a.status !== "ok") return false;
   if (S.filtro === "sem-regra" && a.status !== "sem-regra") return false;
   if (S.filtro === "alerta" && !(a.alertas && a.alertas.length)) return false;
+  if (S.filtro === "ajustados" && !a.manual) return false;
 
   if (!S.busca) return true;
   const alvo = norm(
@@ -710,14 +751,16 @@ function renderizar() {
   const kpi = (classe, valor, rotulo) =>
     `<div class="kpi ${classe}"><b>${valor}</b><span>${rotulo}</span></div>`;
 
-  const chips = [
+  const defsChips = [
     ["todos", "Todos", c.total],
     ["div", "Divergentes", c.div],
     ["revisar", "Revisar", c.revisar],
     ["ok", "Conformes", c.ok],
     ["sem-regra", "Integral", c.semRegra],
     ["alerta", "Alerta de valor", c.alertas],
-  ]
+  ];
+  if (c.ajustados) defsChips.push(["ajustados", "Ajustados", c.ajustados]);
+  const chips = defsChips
     .map(
       ([id, rotulo, n]) =>
         `<button type="button" data-filtro="${id}" aria-pressed="${S.filtro === id}">${rotulo} <b>${n}</b></button>`
@@ -799,6 +842,15 @@ function renderizar() {
   if ($("btnCsv")) $("btnCsv").addEventListener("click", exportarCsv);
   if ($("btnXlsx")) $("btnXlsx").addEventListener("click", exportarXlsx);
 
+  alvo.querySelectorAll("select[data-escolha]").forEach((sel) => {
+    sel.addEventListener("click", (e) => e.stopPropagation());
+    sel.addEventListener("keydown", (e) => e.stopPropagation());
+    sel.addEventListener("change", (e) => {
+      e.stopPropagation();
+      definirEscolha(Number(sel.dataset.escolha), sel.value);
+    });
+  });
+
   alvo.querySelectorAll("tbody tr[data-i]").forEach((tr) => {
     const abrir = () => abrirDetalhe(Number(tr.dataset.i));
     tr.addEventListener("click", abrir);
@@ -827,9 +879,19 @@ function linhaTabela(r, indice) {
   let correto = "";
   if (a.esperados && a.esperados.length) {
     const e = a.principal || a.esperados[0];
-    const extras = a.esperados.length - 1;
-    const nota = a.status === "ok" || extras <= 0 ? "" : `<span class="rotulo">+${extras} opção(ões)</span>`;
-    correto = `<span class="rotulo">CST / cClassTrib</span><span class="valor">${esc(e.cst)} <span class="cc">${esc(e.cc)}</span></span>${nota}`;
+    if (a.esperados.length > 1) {
+      const opts = a.esperados
+        .map((x) => {
+          const sug = a.principalAuto && x.cc === a.principalAuto.cc ? " · sugestão" : "";
+          return `<option value="${esc(x.cc)}"${x.cc === e.cc ? " selected" : ""}>${esc(x.cc)} (CST ${esc(x.cst)}${sug})</option>`;
+        })
+        .join("");
+      correto = `<span class="rotulo">CST / cClassTrib</span><select class="escolha-cc" data-escolha="${i}" aria-label="Escolher a tributação do item (${a.esperados.length} opções permitidas)">${opts}</select>${
+        a.manual ? '<span class="escolha-nota">escolha manual</span>' : `<span class="rotulo">${a.esperados.length} opções</span>`
+      }`;
+    } else {
+      correto = `<span class="rotulo">CST / cClassTrib</span><span class="valor">${esc(e.cst)} <span class="cc">${esc(e.cc)}</span></span>`;
+    }
   } else if (a.status === "invalido") {
     correto = '<span class="rotulo">—</span>';
   } else {
@@ -846,13 +908,27 @@ function linhaTabela(r, indice) {
     <td class="num"><b>${esc(r.ncm || "—")}</b><div class="produto"><span class="desc">${esc(desc) || "—"}</span></div></td>
     <td class="par"><span class="rotulo">CST / cClassTrib</span><span class="valor">${esc(a.declCst || "—")} <span class="cc">${esc(a.declCc || "—")}</span></span></td>
     <td class="par">${correto}</td>
-    <td><span class="selo ${s.classe}">${s.texto}</span>${alerta}</td>
+    <td><span class="selo ${s.classe}">${s.texto}</span>${a.manual ? '<span class="selo info">ajustado</span>' : ""}${alerta}</td>
   </tr>`;
 }
 
 /* ------------------------------------------------------------------ */
 /* detalhe                                                            */
 /* ------------------------------------------------------------------ */
+
+/** Define a tributação do item (escolha manual) ou volta à sugestão automática. */
+function definirEscolha(indice, cc) {
+  const r = S.registros[indice];
+  if (!r) return;
+  const auto = r.analise && r.analise.principalAuto;
+  const cod = codigoPad(cc, 6);
+  if (!cod || (auto && cod === auto.cc)) delete r.escolha;
+  else r.escolha = cod;
+  r.analise = analisarItem(r);
+  renderizar();
+  resumoStatus();
+  if ($("dlg").open) abrirDetalhe(indice);
+}
 
 function abrirDetalhe(indice) {
   const r = S.registros[indice];
@@ -861,14 +937,19 @@ function abrirDetalhe(indice) {
   const regra = a.regra || { permitidos: [], vedados: [] };
   const desc = descNcm(r.ncm);
   const s = SELOS[a.status] || SELOS.revisar;
+  const opcoes = a.esperados || [];
+  const escolhidoCc = a.principal ? a.principal.cc : "";
+  const autoCc = a.principalAuto ? a.principalAuto.cc : "";
+  const podeEscolher = opcoes.length > 1;
 
   const candidatoCard = (c, vedado) => `
-    <div class="candidato${vedado ? " vedado" : ""}">
+    <div class="candidato${vedado ? " vedado" : ""}${podeEscolher && !vedado && c.cc === escolhidoCc ? " escolhido" : ""}">
       <div class="topo-linha">
         <span class="cod">${esc(c.cc)}</span>
         <span class="cst">CST ${esc(c.cst)}</span>
         <span class="selo ${vedado ? "err" : "ok"}">${vedado ? "VEDADO" : "PERMITIDO"}</span>
         ${c.cc === a.declCc ? '<span class="selo info">Declarado</span>' : ""}
+        ${podeEscolher && !vedado && a.manual && c.cc === escolhidoCc ? '<span class="selo ok">Escolhido</span>' : ""}
       </div>
       <p>${esc(c.nome)}</p>
       ${c.conds.map((x) => `<p class="cond">Condição: ${esc(x)}</p>`).join("")}
@@ -878,6 +959,20 @@ function abrirDetalhe(indice) {
         ${c.anexo ? `<span>Anexo ${esc(c.anexo)}</span>` : ""}
         ${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">Legislação</a>` : ""}
       </div>
+      ${
+        podeEscolher && !vedado
+          ? `<div class="acoes">
+              <button type="button" class="btn${c.cc === escolhidoCc && a.manual ? "" : " primario"}" data-usar="${indice}" data-cc="${esc(c.cc)}">${
+                a.manual && c.cc === escolhidoCc ? "Manter esta tributação" : "Usar esta tributação"
+              }</button>
+              ${
+                a.manual && c.cc === autoCc
+                  ? `<button type="button" class="btn" data-usar="${indice}" data-cc="">Voltar à sugestão automática</button>`
+                  : ""
+              }
+            </div>`
+          : ""
+      }
     </div>`;
 
   const declarado = `<div class="caixa ${a.status === "ok" ? "ok" : "err"}">
@@ -887,12 +982,14 @@ function abrirDetalhe(indice) {
     </div>`;
 
   let correto;
-  if (a.esperados && a.esperados.length) {
-    const e = a.principal || a.esperados[0];
-    const titulo = a.status === "ok"
+  if (opcoes.length) {
+    const e = a.principal || opcoes[0];
+    const titulo = a.manual
+      ? `Escolhido entre ${opcoes.length} possibilidades`
+      : a.status === "ok"
       ? "Confirmado no item"
-      : a.esperados.length > 1
-      ? `Possibilidade 1 de ${a.esperados.length}`
+      : opcoes.length > 1
+      ? `Sugestão (1 de ${opcoes.length})`
       : "Esperado para o NCM";
     correto = `<div class="caixa ok">
         <span class="titulo">${titulo}</span>
@@ -928,7 +1025,9 @@ function abrirDetalhe(indice) {
     <p style="font-size:13px;margin:10px 0 0">${esc(a.nota || "")}</p>
     ${alertas}
 
-    <h3>${regra.permitidos.length ? "Possibilidades permitidas para o NCM" : "Regra aplicada"}</h3>
+    <h3>${regra.permitidos.length ? "Possibilidades permitidas para o NCM" : "Regra aplicada"}${
+      podeEscolher ? " — escolha a que se aplica a este item" : ""
+    }</h3>
     ${
       regra.multiplosNcm && regra.multiplosNcm.length
         ? `<div class="candidatos"><div class="candidato">
@@ -957,6 +1056,9 @@ function abrirDetalhe(indice) {
       · <a href="https://silvioalbqrq.github.io/cst-cclasstrib/" target="_blank" rel="noopener">Consulta CST × cClassTrib</a>
     </p>
   `;
+  $("dlgCorpo").querySelectorAll("[data-usar]").forEach((b) =>
+    b.addEventListener("click", () => definirEscolha(Number(b.dataset.usar), b.dataset.cc || ""))
+  );
   const dlg = $("dlg");
   if (!dlg.open) dlg.showModal();
 }
@@ -1100,11 +1202,13 @@ function exportarXlsx() {
   ];
   for (const r of todos) {
     const a = r.analise || {};
-    const e = a.esperados && a.esperados.length === 1 ? a.esperados[0] : null;
+    const opcoesArr = a.esperados || [];
+    // Correção inequívoca: NCM com uma única opção, ou opção escolhida manualmente.
+    const e = a.manual ? a.principal : opcoesArr.length === 1 ? opcoesArr[0] : null;
     const corrigivel = e && a.status === "div";
-    const opcoes = (a.esperados || []).map((x) => x.cc).join(", ");
+    const opcoes = opcoesArr.map((x) => x.cc).join(", ");
     let observacao;
-    if (corrigivel) observacao = `Corrigido para ${e.cst}/${e.cc}. ${a.nota || ""}`.trim();
+    if (corrigivel) observacao = a.manual ? a.nota || `Corrigido para ${e.cst}/${e.cc}.` : `Corrigido para ${e.cst}/${e.cc}. ${a.nota || ""}`.trim();
     else if (a.status === "ok" || a.status === "sem-regra") observacao = "Sem alteração.";
     else if (a.status === "invalido") observacao = "NCM inválido: não foi possível determinar o CST/cClassTrib.";
     else observacao = `Não corrigido automaticamente. ${a.nota || ""}${opcoes ? " Opções: " + opcoes + "." : ""}`.trim();
@@ -1217,6 +1321,7 @@ function iniciar() {
   $("btnLimpar").addEventListener("click", () => {
     S.arquivos = [];
     S.registros = [];
+    S.errosLeitura = [];
     S.filtro = "todos";
     S.busca = "";
     renderArquivos();
