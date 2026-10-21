@@ -29,7 +29,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.21e";
+const VERSAO = "2026.10.21f";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -1860,6 +1860,42 @@ function iniciar() {
   $("dlgFechar").addEventListener("click", () => $("dlg").close());
   $("dlg").addEventListener("click", (e) => {
     if (e.target === $("dlg")) $("dlg").close();
+  });
+
+  // Rodapé: copiar a chave Pix / a invoice Lightning e revelar o valor completo.
+  document.querySelectorAll("[data-copy]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const alvo = $(btn.dataset.copy);
+      if (!alvo) return;
+      const texto = (alvo.getAttribute("data-full") || alvo.textContent || "").trim();
+      if (!texto) return;
+      try {
+        await navigator.clipboard.writeText(texto);
+        btn.textContent = "Copiado!";
+        setTimeout(() => {
+          btn.textContent = "Copiar";
+        }, 1500);
+      } catch {
+        mostrarStatus(
+          "O navegador não permitiu copiar automaticamente. Use “ver chave completa” e copie o texto com Ctrl+C.",
+          "erro"
+        );
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-reveal]").forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const alvo = $(link.dataset.reveal);
+      if (!alvo) return;
+      const completo = alvo.getAttribute("data-full") || "";
+      if (!alvo.getAttribute("data-short")) alvo.setAttribute("data-short", alvo.textContent);
+      const curto = alvo.getAttribute("data-short");
+      const mostrando = alvo.textContent === completo;
+      alvo.textContent = mostrando ? curto : completo;
+      link.textContent = mostrando ? link.dataset.rotulo || "ver completo" : "ocultar";
+    });
   });
 
   document.addEventListener("keydown", (e) => {

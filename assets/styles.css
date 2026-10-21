@@ -843,10 +843,46 @@ dialog#dlg::backdrop { background: rgba(9, 25, 42, .55); backdrop-filter: blur(2
   color: var(--muted);
 }
 
-.rodape .cols { display: flex; flex-wrap: wrap; gap: 28px; justify-content: space-between; }
+.rodape .cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px 28px; align-items: start; }
 .rodape h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink); margin-bottom: 6px; }
 .rodape p { margin: 3px 0; }
 .rodape code { background: #f1f4f8; padding: 1px 5px; border-radius: 4px; font-size: 11.5px; }
+
+/* colunas do rodapé: no desktop vira uma grade de 4 colunas
+   (a 1ª ocupa 2 colunas; a de doações ocupa 3, na 2ª linha) */
+@media (min-width: 901px) {
+  .rodape .cols { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .rodape .cols > div:nth-child(1) { grid-column: span 2; }
+  .rodape .cols > div:nth-child(5) { grid-column: span 3; }
+}
+
+.rodape .cols a { overflow-wrap: break-word; }
+
+/* contato (ícones) e doações — versão para o fundo claro do rodapé */
+.rodape .contact-icons { display: flex; gap: 10px; margin-top: 10px; }
+.rodape .contact-icons a {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--navy);
+  background: #fff;
+}
+.rodape .contact-icons a:hover { background: var(--navy); border-color: var(--navy); color: #fff; }
+.rodape .contact-icons svg { width: 19px; height: 19px; }
+
+.rodape .btn-sm { padding: 4px 8px; font-size: 12px; margin-left: 6px; }
+.rodape .donate-code {
+  font-family: Consolas, monospace;
+  font-size: 11.5px;
+  background: #f1f4f8;
+  padding: 2px 6px;
+  border-radius: 6px;
+  word-break: break-all;
+}
+.rodape .reveal-link { color: var(--navy); font-size: 12px; }
 
 .dica-fonte {
   margin-top: 14px;

@@ -192,3 +192,14 @@ Casos de referência verificados:
 
 Os arquivos são lidos com `FileReader`/`arrayBuffer` no próprio navegador. Nenhum
 conteúdo é transmitido, armazenado ou compartilhado.
+
+## Contato e doações
+
+O rodapé tem o bloco **Contato** (e-mail, WhatsApp e GitHub) e o bloco **Doações**
+(Pix e Lightning), iguais aos do Hub Fiscal (`https://silvioalbqrq.github.io/portal-fiscal/`).
+
+- **Copiar**: `navigator.clipboard.writeText` grava a chave completa (atributo `data-full`,
+  não o texto abreviado). Em contexto sem permissão de área de transferência, o site avisa
+  e a chave completa continua disponível no link "ver chave completa".
+- **Ver/ocultar**: o link troca entre o valor abreviado (`data-short`) e a chave completa.
+- O rodapé não aparece na impressão (`@media print`).

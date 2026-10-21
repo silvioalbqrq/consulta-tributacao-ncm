@@ -8,7 +8,7 @@
 <meta property="og:title" content="Conferência IBS/CBS — NCM × CST × cClassTrib">
 <meta property="og:description" content="Upload de XML (NF-e/NFC-e), planilha, pasta inteira ou arquivo .zip/.rar para conferir CST e cClassTrib por NCM na base oficial do IBS/CBS.">
 <meta property="og:type" content="website">
-<link rel="stylesheet" href="assets/styles.css?v=2026.10.21e">
+<link rel="stylesheet" href="assets/styles.css?v=2026.10.21f">
 </head>
 <body>
 
@@ -120,13 +120,27 @@
         <p>Nada é enviado, gravado ou compartilhado.</p>
         <p>Para atualizar a base: <code>python scripts/atualizar_base.py</code></p>
       </div>
+      <div>
+        <h4>Contato</h4>
+        <p>Dúvidas, sugestões de NCM ou divergência na base? Fale comigo.</p>
+        <div class="contact-icons">
+          <a href="mailto:silvio.albqrq@gmail.com" aria-label="E-mail silvio.albqrq@gmail.com" title="E-mail"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5h20v14H2z" fill="none" stroke="currentColor" stroke-width="2"/><path d="m2 7 10 6L22 7" fill="none" stroke="currentColor" stroke-width="2"/></svg></a>
+          <a href="https://wa.me/5585998206642?text=Ol%C3%A1%2C%20vim%20pelo%20site%20Confer%C3%AAncia%20IBS%2FCBS" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp +55 85 99820-6642" title="WhatsApp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.2 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.4-.7-2.9-1.2-4.7-4.1-4.9-4.3-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5s.8 1.9.8 2c.1.1.1.3 0 .5l-.4.6c-.2.2-.3.4-.1.7.2.3.9 1.5 2 2.4 1.4 1.2 2.5 1.6 2.8 1.8.3.2.5.1.7-.1l.8-1c.2-.3.4-.2.7-.1l1.9.9c.3.1.5.2.6.3 0 .2 0 .7-.2 1.3Z" fill="currentColor"/></svg></a>
+          <a href="https://github.com/silvioalbqrq" target="_blank" rel="noopener noreferrer" aria-label="GitHub @silvioalbqrq" title="GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2A10 10 0 0 0 2 12a10 10 0 0 0 6.8 9.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.2-3.4-1.2-.4-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.2-.4-1.3.1-2.6 0 0 .8-.3 2.7 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.3.2 2.4.1 2.6.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5A10 10 0 0 0 22 12 10 10 0 0 0 12 2Z" fill="currentColor"/></svg></a>
+        </div>
+      </div>
+      <div>
+        <h4>Doações</h4>
+        <p>Pix: <code class="donate-code" id="pix-chave" data-full="8eea81fc-cb40-4150-91fa-6ca829ada37f" title="8eea81fc-cb40-4150-91fa-6ca829ada37f">8eea81fc…da37f</code> <button class="btn btn-sm" data-copy="pix-chave" type="button">Copiar</button><br><small><a href="#" data-reveal="pix-chave" data-rotulo="ver chave completa" class="reveal-link">ver chave completa</a></small></p>
+        <p>Lightning: <code class="donate-code" id="ln-address" data-full="lnbc1p4tt3ccpp5fntekr0ya4r4zd6durklrznte0zsg5jv3zcv83sss4u4efd8d7gsdqqcqzzsxqrrsssp5xg8m0ydtzqprnym2ruqp4260au726czc86p5y2mpl575mp8avdcs9qxpqysgqsjawffjrlkwpa77wf9zvsjx99z833h0dvjqjh0nxqph75rrkghrhzrfwdhj0fqt57l0nwl69c2sgutmm40mgzhkmqy9dpzcje69u09qpaewhvg" title="Invoice única — clique em copiar">lnbc1p4…paewhvg (invoice única)</code> <button class="btn btn-sm" data-copy="ln-address" type="button">Copiar</button><br><small><a href="#" data-reveal="ln-address" data-rotulo="ver invoice completa" class="reveal-link">ver invoice completa</a></small></p>
+      </div>
     </div>
     <p class="dica-fonte">Consulta de apoio, sem vínculo com SEFAZ ou Receita Federal. Antes de usar fiscalmente, confirme a classificação no portal oficial e avalie a condição de uso de cada produto (os anexos podem alcançar apenas parte dos itens de um mesmo NCM).</p>
   </div>
 </footer>
 
-<script src="assets/vendor/xlsx.full.min.js?v=2026.10.21e"></script>
-<script src="assets/vendor/fflate.min.js?v=2026.10.21e"></script>
-<script src="assets/app.js?v=2026.10.21e"></script>
+<script src="assets/vendor/xlsx.full.min.js?v=2026.10.21f"></script>
+<script src="assets/vendor/fflate.min.js?v=2026.10.21f"></script>
+<script src="assets/app.js?v=2026.10.21f"></script>
 </body>
 </html>
