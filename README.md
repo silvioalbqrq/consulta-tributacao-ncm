@@ -13,9 +13,16 @@ Tudo roda no navegador: nenhum arquivo é enviado a servidor.
 
 ## Uso online (GitHub Pages)
 
-1. Crie um repositório, por exemplo `consulta-tributacao-ncm`, e envie o conteúdo desta pasta.
-2. Em **Settings → Pages**, selecione **Deploy from a branch**, branch `main`, pasta `/ (root)`.
-3. Acesse `https://<seu-usuario>.github.io/consulta-tributacao-ncm/`.
+O repositório já inclui o workflow `.github/workflows/pages.yml`, que publica o site a
+cada `push` na branch `main`.
+
+1. Em **Settings → Pages**, escolha **Source: GitHub Actions**
+   (o próprio workflow também tenta habilitar automaticamente no primeiro push).
+2. Faça um `push` na `main` (ou rode o workflow em **Actions → Deploy no GitHub Pages → Run workflow**).
+3. Acesse `https://<seu-usuario>.github.io/<repositório>/`.
+
+Alternativa sem Actions: em **Settings → Pages**, escolha **Deploy from a branch**,
+branch `main`, pasta `/ (root)`.
 
 ## Uso local
 
