@@ -10,7 +10,7 @@ tributária e o site mostra:
 - todas as possibilidades **permitidas** e as **vedadas** para o NCM, com a condição de uso;
 - **alertas de valor** quando o IBS/CBS informado não reflete a redução do cClassTrib;
 - **paginação** (10, 25, 50 ou 100 itens por página) com as visões *todos os itens* e
-  *por tributação*, e **impressão** da lista filtrada completa (não só da página atual).
+  *por código do produto*, e **impressão** da lista filtrada completa (não só da página atual).
 
 Tudo roda no navegador: nenhum arquivo é enviado a servidor.
 
@@ -58,17 +58,19 @@ python -m http.server 8000
    e **Última página »** (vai direto para o fim da lista).
    Ao lado aparece a página atual e a faixa exibida (ex.: *Página 1 de 4 · 1–25 de 87 itens*).
    Trocar o filtro, a busca, a visão ou o tamanho da página volta para a primeira página.
-5. **Alternar a visão** — **Todos os itens** mostra um item por linha (mesmo quando vários
-   têm a mesma tributação); **Por tributação** agrupa os itens pelo par CST/cClassTrib
-   correto + situação, com a quantidade, os NCMs e a lista de cada grupo, para imprimir
-   separadamente os itens de mesma tributação e os de tributação diferente.
+5. **Alternar a visão** — **Todos os itens** mostra um item por linha; **Por código do
+   produto** agrupa os itens pelo `cProd` (código do produto do XML, ou a coluna de código
+   da planilha), mostrando em cada grupo o NCM, a descrição, a situação, a quantidade de
+   itens e quantas tributações declaradas aparecem — se o mesmo produto vier com CST/
+   cClassTrib diferentes em notas diferentes, o grupo fica marcado em âmbar. Arquivos sem
+   a coluna de código são agrupados pelo NCM.
 6. **Escolher a tributação** — quando o NCM tem mais de uma possibilidade permitida, a
    coluna `Correto` mostra um seletor com todas as opções; no detalhe do item há o botão
    **Usar esta tributação** em cada possibilidade (e **Voltar à sugestão automática**).
    A escolha vale para a coluna `Correto`, para os contadores e para a aba `Corrigida`.
 7. **Imprimir** — o botão **Imprimir** (ou `Ctrl+P`) monta um relatório com **todos os itens
-   filtrados**, não só os da página atual, na visão escolhida (item a item ou por
-   tributação). A tela continua paginada; só a impressão sai completa.
+   filtrados**, não só os da página atual, na visão escolhida (item a item ou por código do
+   produto). A tela continua paginada; só a impressão sai completa.
 8. **Exportar** em CSV ou planilha Excel (duas abas: `Conferência` e `Corrigida`).
    A exportação sempre inclui **todos os itens conferidos**, mesmo com um filtro aplicado na tela.
 

@@ -520,7 +520,7 @@ section { scroll-margin-top: 16px; }
   margin-top: 10px;
 }
 
-/* ---------- visão por tributação ---------- */
+/* ---------- visão por código do produto ---------- */
 .trib-grupos { display: grid; gap: 10px; }
 
 .trib-grupo {
@@ -549,14 +549,16 @@ section { scroll-margin-top: 16px; }
 }
 
 .trib-grupo .par-valor { font-size: 15px; font-variant-numeric: tabular-nums; }
-.trib-grupo .par-valor .cc { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; letter-spacing: .02em; }
+.trib-grupo .g-ncmh { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.trib-grupo .g-desch { flex: 1 1 160px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .trib-grupo .g-qtd { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.trib-grupo .g-qtd.alerta { color: var(--warn); font-weight: 600; }
 
 .trib-grupo ul { list-style: none; margin: 0; padding: 0; }
 
 .trib-grupo li {
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr) auto;
+  grid-template-columns: 96px minmax(0, 1fr) auto auto;
   gap: 12px;
   align-items: baseline;
   padding: 9px 14px;
@@ -571,7 +573,7 @@ section { scroll-margin-top: 16px; }
 .trib-grupo .g-ncm { font-weight: 700; font-variant-numeric: tabular-nums; }
 .trib-grupo .g-desc { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .trib-grupo .g-desc small { display: block; color: var(--muted); font-size: 11.5px; }
-.trib-grupo .g-decl { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.trib-grupo .g-decl { font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* ---------- tabela ---------- */
 .tabela-wrap {
@@ -921,8 +923,11 @@ dialog#dlg::backdrop { background: rgba(9, 25, 42, .55); backdrop-filter: blur(2
   .produto { max-width: 180px; }
   .barra-pag { justify-content: flex-start; }
   .paginacao { width: 100%; justify-content: space-between; }
-  .trib-grupo li { grid-template-columns: 96px minmax(0, 1fr); }
-  .trib-grupo .g-decl { grid-column: 2; }
+  .trib-grupo li { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .trib-grupo li .g-ncm { grid-row: 1; grid-column: 1; }
+  .trib-grupo li .g-decl { grid-row: 1; grid-column: 2; }
+  .trib-grupo li > .selo { grid-row: 1; grid-column: 3; justify-self: end; }
+  .trib-grupo li .g-desc { grid-row: 2; grid-column: 1 / span 3; }
 }
 
 /* ---------- impressão ---------- */
