@@ -198,7 +198,7 @@ conteúdo é transmitido, armazenado ou compartilhado.
 
 ## Contato e doações
 
-O rodapé tem o bloco **Contato** (e-mail, WhatsApp e GitHub) e o bloco **Doações**
+O rodapé tem o bloco **Contato** (e-mail, WhatsApp e GitHub) e o bloco **Ajuda**
 (Pix e Lightning), iguais aos do Hub Fiscal (`https://silvioalbqrq.github.io/portal-fiscal/`).
 
 - **Copiar**: `navigator.clipboard.writeText` grava a chave completa (atributo `data-full`,

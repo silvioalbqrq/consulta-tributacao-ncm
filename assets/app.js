@@ -29,7 +29,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.21i";
+const VERSAO = "2026.10.21j";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -988,11 +988,20 @@ function grupoHtml(g, indiceGlobal) {
   const distintas = new Set(g.itens.map(declarado)).size;
   const itens = g.itens
     .map((r) => {
-      const st = SELOS[(r.analise || {}).status] || SELOS.revisar;
+      const a = r.analise || {};
+      const st = SELOS[a.status] || SELOS.revisar;
+      const esperados = a.esperados || [];
+      const e = a.principal || esperados[0];
+      let correto;
+      if (!esperados.length) correto = `<span class="g-corr">${a.status === "invalido" ? "—" : "ver detalhe"}</span>`;
+      else if (esperados.length > 1) correto = selectCorreto(a, indiceGlobal.get(r));
+      else correto = `<span class="g-corr" title="CST / cClassTrib correto">${esc(e.cst)} ${esc(e.cc)}</span>`;
       return `<li data-i="${indiceGlobal.get(r)}" tabindex="0">
         <span class="g-ncm">${esc(r.ncm || "—")}</span>
         <span class="g-desc">${esc(contextoItem(r, { data: true }))}</span>
-        <span class="g-decl">${esc(declarado(r))}</span>
+        <span class="g-par"><span class="g-decl" title="CST / cClassTrib declarado no arquivo">${esc(
+          declarado(r)
+        )}</span> <span class="g-seta">→</span> ${correto}</span>
         <span class="selo ${st.classe}">${st.texto}</span>
       </li>`;
     })
@@ -1044,6 +1053,18 @@ function irParaTabela() {
   if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+/** Seletor do CST/cClassTrib correto quando o NCM tem mais de uma possibilidade. */
+function selectCorreto(a, indice) {
+  const e = a.principal || a.esperados[0];
+  const opts = a.esperados
+    .map((x) => {
+      const sug = a.principalAuto && x.cc === a.principalAuto.cc ? " · sugestão" : "";
+      return `<option value="${esc(x.cc)}"${x.cc === e.cc ? " selected" : ""}>${esc(x.cc)} (CST ${esc(x.cst)}${sug})</option>`;
+    })
+    .join("");
+  return `<select class="escolha-cc" data-escolha="${indice}" aria-label="Escolher a tributação do item (${a.esperados.length} opções permitidas)">${opts}</select>`;
+}
+
 function linhaTabela(r, indice) {
   const i = indice;
   const a = r.analise || {};
@@ -1055,13 +1076,7 @@ function linhaTabela(r, indice) {
   if (a.esperados && a.esperados.length) {
     const e = a.principal || a.esperados[0];
     if (a.esperados.length > 1) {
-      const opts = a.esperados
-        .map((x) => {
-          const sug = a.principalAuto && x.cc === a.principalAuto.cc ? " · sugestão" : "";
-          return `<option value="${esc(x.cc)}"${x.cc === e.cc ? " selected" : ""}>${esc(x.cc)} (CST ${esc(x.cst)}${sug})</option>`;
-        })
-        .join("");
-      correto = `<span class="rotulo">CST / cClassTrib</span><select class="escolha-cc" data-escolha="${i}" aria-label="Escolher a tributação do item (${a.esperados.length} opções permitidas)">${opts}</select>${
+      correto = `<span class="rotulo">CST / cClassTrib</span>${selectCorreto(a, i)}${
         a.manual ? '<span class="escolha-nota">escolha manual</span>' : `<span class="rotulo">${a.esperados.length} opções</span>`
       }`;
     } else {
@@ -1470,9 +1485,13 @@ function impressaoProdutos(lista) {
         .map((r) => {
           const a = r.analise || {};
           const st = SELOS[a.status] || SELOS.revisar;
+          const e = a.principal || (a.esperados && a.esperados[0]);
+          const correto = e ? `${e.cst}/${e.cc}` : "—";
           return `<tr><td class="imp-ncm">${esc(r.ncm || "—")}</td><td>${esc(
             contextoItem(r, { data: true })
-          )}</td><td class="imp-num">${esc(a.declCst || "—")}/${esc(a.declCc || "—")}</td><td>${st.texto}</td></tr>`;
+          )}</td><td class="imp-num">${esc(a.declCst || "—")}/${esc(a.declCc || "—")}</td><td class="imp-num">${esc(
+            correto
+          )}</td><td>${st.texto}</td></tr>`;
         })
         .join("");
       return `<section class="imp-grupo">
@@ -1480,7 +1499,7 @@ function impressaoProdutos(lista) {
         s.texto
       }</span><span class="imp-qtd">${g.itens.length} item(ns)</span></h2>
         <table class="imp-tabela">
-          <thead><tr><th>NCM</th><th>Origem / nota</th><th>Declarado</th><th>Situação</th></tr></thead>
+          <thead><tr><th>NCM</th><th>Origem / nota</th><th>Declarado</th><th>Correto</th><th>Situação</th></tr></thead>
           <tbody>${itens}</tbody>
         </table>
       </section>`;
