@@ -29,7 +29,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.21j";
+const VERSAO = "2026.10.21k";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -977,7 +977,8 @@ function gruposHtml(lista, indiceGlobal) {
   return lista.map((g) => grupoHtml(g, indiceGlobal)).join("");
 }
 
-/** Um bloco por código de produto, com a tributação declarada em cada item. */
+/** Um bloco por código de produto. O que vale para todos os itens aparece uma vez no
+ *  cabeçalho (NCM, declarado → correto, situação); a linha mostra só o que varia. */
 function grupoHtml(g, indiceGlobal) {
   const s = SELOS[g.status] || SELOS.revisar;
   const ncms = new Set(g.itens.map((r) => r.ncm).filter(Boolean));
@@ -985,34 +986,58 @@ function grupoHtml(g, indiceGlobal) {
     const a = r.analise || {};
     return `${a.declCst || "—"}/${a.declCc || "—"}`;
   };
+  const corretoTexto = (r) => {
+    const a = r.analise || {};
+    const esperados = a.esperados || [];
+    const e = a.principal || esperados[0];
+    return e && esperados.length === 1 ? `${e.cst} ${e.cc}` : "";
+  };
   const distintas = new Set(g.itens.map(declarado)).size;
+  const pares = new Set(g.itens.map((r) => `${declarado(r)}|${corretoTexto(r)}`));
+  const parComum =
+    pares.size === 1 && corretoTexto(g.itens[0]) ? { decl: declarado(g.itens[0]), corr: corretoTexto(g.itens[0]) } : null;
+  const statusComum = new Set(g.itens.map((r) => (r.analise || {}).status || "revisar")).size === 1;
+  const ncmComum = ncms.size === 1;
+
   const itens = g.itens
     .map((r) => {
       const a = r.analise || {};
       const st = SELOS[a.status] || SELOS.revisar;
       const esperados = a.esperados || [];
       const e = a.principal || esperados[0];
-      let correto;
-      if (!esperados.length) correto = `<span class="g-corr">${a.status === "invalido" ? "—" : "ver detalhe"}</span>`;
-      else if (esperados.length > 1) correto = selectCorreto(a, indiceGlobal.get(r));
-      else correto = `<span class="g-corr" title="CST / cClassTrib correto">${esc(e.cst)} ${esc(e.cc)}</span>`;
+      let correto = "";
+      if (!parComum) {
+        if (!esperados.length) correto = `<span class="g-corr">${a.status === "invalido" ? "—" : "ver detalhe"}</span>`;
+        else if (esperados.length > 1) correto = selectCorreto(a, indiceGlobal.get(r));
+        else correto = `<span class="g-corr" title="CST / cClassTrib correto">${esc(e.cst)} ${esc(e.cc)}</span>`;
+      }
       return `<li data-i="${indiceGlobal.get(r)}" tabindex="0">
-        <span class="g-ncm">${esc(r.ncm || "—")}</span>
+        ${ncmComum ? "" : `<span class="g-ncm">${esc(r.ncm || "—")}</span>`}
         <span class="g-desc">${esc(contextoItem(r, { data: true }))}</span>
-        <span class="g-par"><span class="g-decl" title="CST / cClassTrib declarado no arquivo">${esc(
-          declarado(r)
-        )}</span> <span class="g-seta">→</span> ${correto}</span>
-        <span class="selo ${st.classe}">${st.texto}</span>
+        ${
+          parComum
+            ? ""
+            : `<span class="g-par"><span class="g-decl" title="CST / cClassTrib declarado no arquivo">${esc(
+                declarado(r)
+              )}</span> <span class="g-seta">→</span> ${correto}</span>`
+        }
+        ${statusComum ? "" : `<span class="selo ${st.classe}">${st.texto}</span>`}
       </li>`;
     })
     .join("");
   const ncmTxt = ncms.size === 1 ? `NCM ${[...ncms][0]}` : ncms.size > 1 ? `${ncms.size} NCMs` : "";
+  const parHtml = parComum
+    ? `<span class="g-par" title="CST / cClassTrib declarado → correto de todos os itens"><span class="g-decl">${esc(
+        parComum.decl
+      )}</span> <span class="g-seta">→</span> <span class="g-corr">${esc(parComum.corr)}</span></span>`
+    : "";
   return `<section class="trib-grupo">
     <header>
       <span class="par-titulo">${g.porNcm ? "NCM" : "Código do produto"}</span>
       <b class="par-valor">${esc(g.codigo)}</b>
       ${g.porNcm || !ncmTxt ? "" : `<span class="g-ncmh">${esc(ncmTxt)}</span>`}
       <span class="g-desch">${esc(descricaoItem(g.itens[0]))}</span>
+      ${parHtml}
       <span class="selo ${s.classe}">${s.texto}</span>
       <span class="g-qtd${distintas > 1 ? " alerta" : ""}">${g.itens.length} ${
         g.itens.length === 1 ? "item" : "itens"
