@@ -181,6 +181,20 @@ section { scroll-margin-top: 16px; }
   cursor: pointer;
 }
 
+.atalhos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.atalhos .nota {
+  font-size: 12px;
+  color: var(--muted);
+  flex: 1 1 220px;
+}
+
 .lista-arquivos {
   list-style: none;
   margin: 12px 0 0;

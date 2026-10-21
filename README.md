@@ -33,8 +33,13 @@ python -m http.server 8000
 
 ## Como usar
 
-1. **Enviar arquivos** — arraste um ou vários XML de NF-e/NFC-e, ou uma planilha
-   `.xlsx`, `.xls` ou `.csv`. Clique em **Conferir tributação**.
+1. **Enviar arquivos** — arraste um ou vários XML de NF-e/NFC-e, uma planilha
+   `.xlsx`, `.xls` ou `.csv`, ou:
+   - **uma pasta inteira** (botão **Escolher uma pasta** ou arrastando a pasta) — todos os
+     XML e planilhas da pasta e das subpastas entram na conferência;
+   - **um arquivo compactado** `.zip` ou `.rar` com os XML/planilhas dentro (as pastas
+     internas são lidas e arquivos de sistema, como `__MACOSX` e `~$…`, são ignorados).
+   Depois, clique em **Conferir tributação**.
 2. **Conferir um NCM** — digite o código (4 a 8 dígitos) para consultar sem arquivo.
 3. **Filtrar** por divergentes, revisar, conformes, integral (sem regra), alertas de valor
    ou ajustados (itens com tributação escolhida manualmente).
@@ -62,6 +67,18 @@ A primeira linha com um cabeçalho de NCM é usada. São aceitos nomes como:
 Planilhas com apenas a coluna NCM também funcionam: o site devolve a tributação
 correta de cada código.
 
+### Pasta e arquivos compactados
+
+- **Pasta**: usa o seletor de diretório do navegador (`webkitdirectory`) ou o arrastar-e-soltar
+  de pastas (`webkitGetAsEntry`). O caminho relativo de cada arquivo é preservado na coluna
+  `Origem`, inclusive as subpastas.
+- **`.zip`**: descompactado no navegador com [fflate](https://github.com/101arrowz/fflate)
+  (MIT, ~33 KB); só os arquivos XML/planilha são extraídos em memória.
+- **`.rar`**: descompactado com `node-unrar-js` 2.0.2 (MIT, build wasm). O `unrar.wasm`
+  (~200 KB) só é baixado na primeira vez que um `.rar` é enviado.
+- **Limites de segurança**: até 3.000 arquivos e 300 MB descompactados por pacote.
+  RAR/ZIP protegido por senha não é suportado (o site avisa).
+
 ## Como a conferência é feita
 
 1. **Sem vínculo nos anexos** → tributação integral: `CST 000 / cClassTrib 000001`.
@@ -88,8 +105,11 @@ consulta-tributacao-ncm-site/
 ├── index.html                     # página única
 ├── assets/
 │   ├── styles.css                 # visual
-│   ├── app.js                     # leitura de XML/planilha, regras, telas, exportação
-│   └── vendor/xlsx.full.min.js    # SheetJS (leitura/escrita de XLSX/CSV)
+│   ├── app.js                     # leitura de XML/planilha/pasta/ZIP/RAR, regras, telas, exportação
+│   └── vendor/
+│       ├── xlsx.full.min.js       # SheetJS (leitura/escrita de XLSX/CSV)
+│       ├── fflate.min.js          # ZIP (fflate, MIT)
+│       └── unrar/                 # RAR (node-unrar-js ESM + unrar.wasm, MIT)
 ├── data/
 │   ├── cst-cclasstrib.json        # catálogo de CST e cClassTrib (enxuto)
 │   ├── ncm-regras.json            # índice NCM → cClassTrib (permitido/vedado + condição)

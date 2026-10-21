@@ -1,0 +1,19 @@
+node-unrar-js 2.0.2 (build ESM) — https://github.com/YuJianrong/node-unrar-js
+Licença: MIT (LICENSE.md no pacote original).
+
+Arquivos vendorizados do pacote npm, sem alteração de lógica:
+
+  index.esm.js            -> esm/index.esm.js
+  Extractor.js            -> esm/js/Extractor.js
+  ExtractorData.js        -> esm/js/ExtractorData.js
+  ExtractorData.helper.js -> esm/js/ExtractorData.helper.js
+  unrar.singleton.js      -> esm/js/unrar.singleton.js
+  unrar.js                -> esm/js/unrar.js
+  unrar.wasm              -> esm/js/unrar.wasm
+
+Única alteração: os imports relativos sem extensão foram ajustados para incluir
+".js" (necessário para carregar como módulo ES direto no navegador).
+
+Uso no site (assets/app.js): import dinâmico de index.esm.js e
+createExtractorFromData({ wasmBinary, data }); o wasm é buscado uma única vez e
+passado explicitamente, para não depender do caminho relativo do módulo.

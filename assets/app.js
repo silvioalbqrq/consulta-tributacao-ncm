@@ -20,6 +20,7 @@ const S = {
   busca: "",
   limite: 250,
   processando: false,
+  descompactando: false,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -631,6 +632,10 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 
 async function processarArquivos() {
   if (!S.arquivos.length || S.processando) return;
+  if (S.descompactando) {
+    mostrarStatus("Aguarde: ainda estou descompactando os arquivos enviados.", "carregando");
+    return;
+  }
   if (!S.cat || !S.regras) {
     mostrarStatus("A base de classificação tributária ainda não foi carregada. Recarregue a página e tente novamente.", "erro");
     return;
@@ -1246,16 +1251,253 @@ function baixar(blob, nome) {
 /* ------------------------------------------------------------------ */
 
 const EXT_OK = ["xml", "xlsx", "xls", "csv"];
+const EXT_PACOTE = ["zip", "rar"];
+const TIPO_MIME = {
+  xml: "text/xml",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  xls: "application/vnd.ms-excel",
+  csv: "text/csv",
+};
+const LIMITE_PACOTE_ARQUIVOS = 3000;
+const LIMITE_PACOTE_BYTES = 300 * 1024 * 1024;
 
-function adicionarArquivos(lista) {
-  const novos = Array.from(lista).filter((f) => {
-    const ext = (f.name.split(".").pop() || "").toLowerCase();
-    return EXT_OK.includes(ext);
+function extensao(nome) {
+  return (String(nome || "").split(".").pop() || "").toLowerCase();
+}
+
+function caminhoLimpo(nome) {
+  return String(nome || "").replace(/\\/g, "/").replace(/^\/+/, "");
+}
+
+/** Entrada que interessa dentro de pasta/compactado, ignorando lixo do sistema. */
+function entradaUtil(nome) {
+  const caminho = caminhoLimpo(nome);
+  if (!caminho || caminho.endsWith("/")) return false;
+  if (/(^|\/)__MACOSX(\/|$)/.test(caminho)) return false;
+  const base = caminho.split("/").pop();
+  if (!base || base.startsWith(".") || base.startsWith("~$")) return false;
+  return EXT_OK.includes(extensao(base));
+}
+
+function extensaoAceita(nome) {
+  const ext = extensao(nome);
+  return EXT_OK.includes(ext) || EXT_PACOTE.includes(ext);
+}
+
+/** Cria um File a partir dos bytes extraídos, mantendo o caminho interno como nome. */
+function arquivoDeBytes(bytes, nome, pacote) {
+  const caminho = caminhoLimpo(nome);
+  const f = new File([bytes], caminho, {
+    type: TIPO_MIME[extensao(caminho)] || "application/octet-stream",
   });
-  for (const f of novos) {
-    if (!S.arquivos.some((x) => x.name === f.name && x.size === f.size)) S.arquivos.push(f);
+  if (pacote) Object.defineProperty(f, "pacote", { value: pacote, enumerable: false });
+  return f;
+}
+
+/** Mantém o caminho relativo como nome (pasta escolhida/arrastada), para não perder a origem. */
+function comCaminho(f, caminho) {
+  const nome = caminhoLimpo(caminho);
+  if (!nome || nome === f.name) return f;
+  try {
+    return new File([f], nome, { type: f.type, lastModified: f.lastModified });
+  } catch (_) {
+    return f;
   }
+}
+
+async function descompactarZip(file) {
+  const fflate = window.fflate;
+  if (!fflate || typeof fflate.unzipSync !== "function") {
+    throw new Error("o descompactador de ZIP não foi carregado; recarregue a página");
+  }
+  let entradas;
+  try {
+    const dados = new Uint8Array(await file.arrayBuffer());
+    entradas = fflate.unzipSync(dados, { filter: (e) => entradaUtil(e.name) });
+  } catch (_) {
+    throw new Error("ZIP inválido, corrompido ou protegido por senha");
+  }
+  const nomes = Object.keys(entradas);
+  if (nomes.length > LIMITE_PACOTE_ARQUIVOS) {
+    throw new Error(`o ZIP tem mais de ${LIMITE_PACOTE_ARQUIVOS} arquivos compatíveis`);
+  }
+  const saida = [];
+  let total = 0;
+  for (const nome of nomes) {
+    const bytes = entradas[nome];
+    total += bytes.length;
+    if (total > LIMITE_PACOTE_BYTES) throw new Error("o ZIP passa de 300 MB depois de descompactado");
+    saida.push(arquivoDeBytes(bytes, nome, file.name));
+  }
+  return saida;
+}
+
+let unrarPronto = null;
+
+/** Carrega o unrar (wasm) só na primeira vez que aparece um RAR. */
+function carregarUnrar() {
+  if (!unrarPronto) {
+    unrarPronto = (async () => {
+      const modulo = await import(new URL("assets/vendor/unrar/index.esm.js", document.baseURI).href);
+      const resposta = await fetch(new URL("assets/vendor/unrar/unrar.wasm", document.baseURI).href);
+      if (!resposta.ok) throw new Error("não foi possível baixar o descompactador de RAR");
+      return { modulo, wasmBinary: await resposta.arrayBuffer() };
+    })().catch((e) => {
+      unrarPronto = null;
+      throw e;
+    });
+  }
+  return unrarPronto;
+}
+
+const MOTIVOS_RAR = {
+  ERAR_MISSING_PASSWORD: "RAR protegido por senha",
+  ERAR_BAD_PASSWORD: "RAR protegido por senha (senha incorreta)",
+  ERAR_BAD_ARCHIVE: "não é um arquivo RAR válido",
+  ERAR_UNKNOWN_FORMAT: "formato de RAR não suportado",
+  ERAR_BAD_DATA: "RAR corrompido",
+  ERAR_EREAD: "RAR corrompido ou incompleto",
+  ERAR_EOPEN: "não foi possível abrir o RAR",
+  ERAR_NO_MEMORY: "memória insuficiente para descompactar o RAR",
+};
+
+function mensagemRar(e) {
+  if (e && MOTIVOS_RAR[e.reason]) return MOTIVOS_RAR[e.reason];
+  return (e && e.message) || "não foi possível descompactar o RAR";
+}
+
+async function descompactarRar(file) {
+  const { modulo, wasmBinary } = await carregarUnrar();
+  let extrator;
+  try {
+    extrator = await modulo.createExtractorFromData({ wasmBinary, data: await file.arrayBuffer() });
+  } catch (e) {
+    throw new Error(mensagemRar(e));
+  }
+  const saida = [];
+  let total = 0;
+  let concluido = false;
+  try {
+    const { files } = extrator.extract({
+      files: (h) => !h.flags.directory && entradaUtil(h.name),
+    });
+    for (const item of files) {
+      if (saida.length >= LIMITE_PACOTE_ARQUIVOS) {
+        throw new Error(`o RAR tem mais de ${LIMITE_PACOTE_ARQUIVOS} arquivos compatíveis`);
+      }
+      total += item.extraction.length;
+      if (total > LIMITE_PACOTE_BYTES) throw new Error("o RAR passa de 300 MB depois de descompactado");
+      saida.push(arquivoDeBytes(item.extraction, item.fileHeader.name, file.name));
+    }
+    concluido = true;
+  } catch (e) {
+    throw new Error(mensagemRar(e));
+  } finally {
+    if (!concluido && extrator && typeof extrator.closeArc === "function") {
+      try {
+        extrator.closeArc();
+      } catch (_) {
+        /* ignore */
+      }
+    }
+  }
+  return saida;
+}
+
+function adicionarNaLista(novo) {
+  if (S.arquivos.some((x) => x.name === novo.name && x.size === novo.size)) return false;
+  S.arquivos.push(novo);
+  return true;
+}
+
+async function adicionarArquivos(lista) {
+  const arquivos = Array.from(lista || []);
+  if (!arquivos.length) return;
+
+  const simples = [];
+  const pacotes = [];
+  for (const bruto of arquivos) {
+    const f = comCaminho(bruto, bruto.webkitRelativePath || "");
+    const ext = extensao(f.name);
+    if (EXT_OK.includes(ext)) simples.push(f);
+    else if (EXT_PACOTE.includes(ext)) pacotes.push(f);
+  }
+
+  let adicionados = 0;
+  for (const f of simples) if (adicionarNaLista(f)) adicionados++;
+
+  const avisos = [];
+  const erros = [];
+  if (pacotes.length) {
+    S.descompactando = true;
+    renderArquivos();
+    try {
+      for (const pacote of pacotes) {
+        mostrarStatus(`Descompactando ${pacote.name}…`, "carregando");
+        await tick();
+        try {
+          const extraidos =
+            extensao(pacote.name) === "zip" ? await descompactarZip(pacote) : await descompactarRar(pacote);
+          for (const f of extraidos) if (adicionarNaLista(f)) adicionados++;
+          avisos.push(
+            extraidos.length
+              ? `${pacote.name}: ${extraidos.length} arquivo(s)`
+              : `${pacote.name}: nenhum XML ou planilha dentro`
+          );
+        } catch (e) {
+          erros.push(`${pacote.name}: ${e.message}`);
+        }
+      }
+    } finally {
+      S.descompactando = false;
+    }
+  }
+
   renderArquivos();
+  if (erros.length) mostrarStatus(erros.join(" | "), "erro");
+  else if (avisos.length) mostrarStatus(`${avisos.join(" · ")}. ${S.arquivos.length} arquivo(s) na lista.`, "ok");
+  else if (!adicionados && S.arquivos.length) mostrarStatus("Os arquivos selecionados já estavam na lista.", "ok");
+  else if (!adicionados) {
+    mostrarStatus("Nenhum arquivo compatível foi selecionado. Envie XML, XLSX, XLS, CSV, ZIP ou RAR.", "erro");
+  }
+}
+
+/** Percorre uma entrada arrastada (pasta ou arquivo) e devolve os File compatíveis. */
+async function lerEntrada(entrada) {
+  if (!entrada) return [];
+  if (entrada.isFile) {
+    if (!extensaoAceita(entrada.name)) return [];
+    const arquivo = await new Promise((res) => entrada.file((f) => res(f || null), () => res(null)));
+    return arquivo ? [comCaminho(arquivo, entrada.fullPath || arquivo.name)] : [];
+  }
+  if (!entrada.isDirectory) return [];
+  const leitor = entrada.createReader();
+  const saida = [];
+  while (true) {
+    const lote = await new Promise((res) => leitor.readEntries((e) => res(e || []), () => res([])));
+    if (!lote.length) break;
+    for (const item of lote) saida.push(...(await lerEntrada(item)));
+  }
+  return saida;
+}
+
+async function arquivosDoTransfer(dt) {
+  const itens = dt && dt.items ? Array.from(dt.items) : [];
+  const entradas = itens
+    .filter((i) => i.kind === "file" && typeof i.webkitGetAsEntry === "function")
+    .map((i) => {
+      try {
+        return i.webkitGetAsEntry();
+      } catch (_) {
+        return null;
+      }
+    })
+    .filter(Boolean);
+  if (!entradas.length) return dt && dt.files ? Array.from(dt.files) : [];
+  const listas = await Promise.all(entradas.map(lerEntrada));
+  const arquivos = listas.reduce((acc, l) => acc.concat(l), []);
+  if (arquivos.length) return arquivos;
+  return dt && dt.files ? Array.from(dt.files) : [];
 }
 
 function renderArquivos() {
@@ -1265,7 +1507,7 @@ function renderArquivos() {
     .map(
       (f, i) => `<li>
         <span class="tipo">${esc((f.name.split(".").pop() || "").toUpperCase())}</span>
-        <span class="nome" title="${esc(f.name)}">${esc(f.name)}</span>
+        <span class="nome" title="${esc(f.pacote ? `${f.name} (de ${f.pacote})` : f.name)}">${esc(f.name)}</span>
         <button type="button" class="remover" data-remover="${i}" aria-label="Remover ${esc(f.name)}">×</button>
       </li>`
     )
@@ -1277,9 +1519,10 @@ function renderArquivos() {
       renderArquivos();
     })
   );
-  $("btnProcessar").disabled = !S.arquivos.length || S.processando;
+  $("btnProcessar").disabled = !S.arquivos.length || S.processando || S.descompactando;
   $("btnLimpar").disabled = !S.arquivos.length && !S.registros.length;
 }
+
 
 /* ------------------------------------------------------------------ */
 /* eventos                                                            */
@@ -1288,10 +1531,20 @@ function renderArquivos() {
 function iniciar() {
   const zona = $("zona");
   const input = $("arquivos");
+  const inputPasta = $("arquivosPasta");
 
   input.addEventListener("change", () => {
-    adicionarArquivos(input.files);
+    const lista = Array.from(input.files || []);
     input.value = "";
+    adicionarArquivos(lista);
+  });
+
+  $("btnPasta").addEventListener("click", () => inputPasta.click());
+
+  inputPasta.addEventListener("change", () => {
+    const lista = Array.from(inputPasta.files || []);
+    inputPasta.value = "";
+    adicionarArquivos(lista);
   });
 
   ;["dragenter", "dragover"].forEach((ev) =>
@@ -1306,8 +1559,11 @@ function iniciar() {
       zona.classList.remove("ativo");
     })
   );
-  zona.addEventListener("drop", (e) => {
-    if (e.dataTransfer && e.dataTransfer.files) adicionarArquivos(e.dataTransfer.files);
+  zona.addEventListener("drop", async (e) => {
+    if (!e.dataTransfer) return;
+    mostrarStatus("Lendo os arquivos arrastados…", "carregando");
+    const lista = await arquivosDoTransfer(e.dataTransfer);
+    await adicionarArquivos(lista);
   });
   zona.addEventListener("keydown", (e) => {
     if (e.key === "Enter" || e.key === " ") {

@@ -6,7 +6,7 @@
 <title>Conferência IBS/CBS — NCM × CST × cClassTrib</title>
 <meta name="description" content="Confira a tributação de IBS e CBS de NF-e, NFC-e ou planilha Excel: o site cruza o NCM de cada item com a base oficial de CST e cClassTrib e aponta divergências.">
 <meta property="og:title" content="Conferência IBS/CBS — NCM × CST × cClassTrib">
-<meta property="og:description" content="Upload de XML (NF-e/NFC-e) ou planilha para conferir CST e cClassTrib por NCM na base oficial do IBS/CBS.">
+<meta property="og:description" content="Upload de XML (NF-e/NFC-e), planilha, pasta inteira ou arquivo .zip/.rar para conferir CST e cClassTrib por NCM na base oficial do IBS/CBS.">
 <meta property="og:type" content="website">
 <link rel="stylesheet" href="assets/styles.css">
 </head>
@@ -32,18 +32,27 @@
 
     <section class="card" id="cardUpload">
       <header>
-        <h2><span class="passo">1</span>Enviar XML ou planilha</h2>
+        <h2><span class="passo">1</span>Enviar arquivos</h2>
       </header>
-      <p class="ajuda">XML de NF-e/NFC-e (pode enviar vários de uma vez) ou planilha <b>.xlsx</b>, <b>.xls</b> ou <b>.csv</b> com uma coluna de NCM.</p>
+      <p class="ajuda">XML de NF-e/NFC-e (pode enviar vários de uma vez), planilha <b>.xlsx</b>, <b>.xls</b> ou <b>.csv</b> com uma coluna de NCM, ou um arquivo compactado <b>.zip</b> / <b>.rar</b> com esses arquivos dentro.</p>
 
-      <div class="zona" id="zona" tabindex="0" role="button" aria-label="Selecionar arquivos XML ou planilha">
+      <div class="zona" id="zona" tabindex="0" role="button" aria-label="Selecionar arquivos XML, planilha, pasta ou compactado">
         <div class="icone" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         </div>
         <strong>Arraste os arquivos aqui ou clique para selecionar</strong>
-        <span>XML · XLSX · XLS · CSV</span>
-        <small>Para muitas notas, selecione todos os XML de uma pasta de uma só vez.</small>
-        <input type="file" id="arquivos" multiple accept=".xml,.xlsx,.xls,.csv,text/xml,application/xml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv">
+        <span>XML · XLSX · XLS · CSV · ZIP · RAR</span>
+        <small>Arraste também uma pasta inteira ou um arquivo compactado; as subpastas são lidas.</small>
+        <input type="file" id="arquivos" multiple accept=".xml,.xlsx,.xls,.csv,.zip,.rar,text/xml,application/xml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,application/zip,application/x-rar-compressed">
+      </div>
+
+      <div class="atalhos">
+        <button type="button" class="btn" id="btnPasta">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          Escolher uma pasta
+        </button>
+        <span class="nota">Lê todos os XML e planilhas da pasta (inclusive subpastas) e os .zip / .rar.</span>
+        <input type="file" id="arquivosPasta" webkitdirectory directory multiple hidden>
       </div>
 
       <ul class="lista-arquivos" id="listaArquivos" hidden></ul>
@@ -115,6 +124,7 @@
 </footer>
 
 <script src="assets/vendor/xlsx.full.min.js"></script>
+<script src="assets/vendor/fflate.min.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>
