@@ -18,7 +18,9 @@ const S = {
   errosLeitura: [],
   filtro: "todos",
   busca: "",
-  limite: 250,
+  tamanhoPagina: 25,
+  pagina: 1,
+  visao: "itens",
   processando: false,
   descompactando: false,
 };
@@ -27,7 +29,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.21";
+const VERSAO = "2026.10.21b";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -668,7 +670,7 @@ async function processarArquivos() {
     S.errosLeitura = erros;
     S.filtro = "todos";
     S.busca = "";
-    S.limite = 250;
+    S.pagina = 1;
 
     if (!registros.length) {
       mostrarStatus("Nenhum item pôde ser lido." + (erros.length ? " " + erros.join(" | ") : ""), "erro");
@@ -754,8 +756,20 @@ function renderizar() {
   }
   const c = contar();
   const filtrados = S.registros.filter(registroFiltrado);
-  const visiveis = filtrados.slice(0, S.limite);
   const indiceGlobal = new Map(S.registros.map((r, i) => [r, i]));
+  const grupos = S.visao === "resumo" ? agruparPorTributacao(filtrados) : null;
+  const linhas = grupos || filtrados;
+  const totalPaginas = Math.max(1, Math.ceil(linhas.length / S.tamanhoPagina));
+  S.pagina = Math.min(Math.max(1, S.pagina), totalPaginas);
+  const inicio = (S.pagina - 1) * S.tamanhoPagina;
+  const visiveis = linhas.slice(inicio, inicio + S.tamanhoPagina);
+  const unidade = grupos ? (linhas.length === 1 ? "tributação" : "tributações") : linhas.length === 1 ? "item" : "itens";
+  const faixa = linhas.length
+    ? `${inicio + 1}–${inicio + visiveis.length} de ${linhas.length} ${unidade}`
+    : `0 ${unidade}`;
+  const opcoesTamanho = PAGINAS.map(
+    (n) => `<option value="${n}"${n === S.tamanhoPagina ? " selected" : ""}>${n}</option>`
+  ).join("");
 
   const kpi = (classe, valor, rotulo) =>
     `<div class="kpi ${classe}"><b>${valor}</b><span>${rotulo}</span></div>`;
@@ -791,38 +805,34 @@ function renderizar() {
         <input id="buscaResultado" type="search" placeholder="Filtrar por NCM, produto, nota…" value="${esc(S.busca)}" aria-label="Filtrar resultados">
         <button type="button" class="btn" id="btnCsv" title="Exporta todos os itens conferidos">CSV</button>
         <button type="button" class="btn dourado" id="btnXlsx" title="Exporta todos os itens conferidos">Baixar planilha</button>
+        <button type="button" class="btn" id="btnImprimir" title="Imprimir a lista filtrada (todos os itens, não só esta página)">Imprimir</button>
       </div>
     </div>
-    <div class="tabela-wrap">
-      ${
-        visiveis.length
-          ? `<table class="resultado">
-        <thead><tr>
-          <th>Origem / nota</th>
-          <th>NCM e produto</th>
-          <th>Declarado</th>
-          <th>Correto</th>
-          <th>Situação</th>
-        </tr></thead>
-        <tbody>${visiveis.map((r) => linhaTabela(r, indiceGlobal.get(r))).join("")}</tbody>
-      </table>`
-          : `<p class="vazio">Nenhum item para este filtro.</p>`
-      }
+    <div class="barra-sec">
+      <div class="visao" role="group" aria-label="Como mostrar os itens">
+        <button type="button" data-visao="itens" aria-pressed="${S.visao === "itens"}">Todos os itens</button>
+        <button type="button" data-visao="resumo" aria-pressed="${S.visao === "resumo"}">Por tributação</button>
+      </div>
+      <div class="paginacao">
+        <label class="por-pagina">Por página
+          <select id="tamanhoPagina" aria-label="Itens por página">${opcoesTamanho}</select>
+        </label>
+        <button type="button" class="btn" id="pagAnterior"${S.pagina <= 1 ? " disabled" : ""}>‹ Anterior</button>
+        <span class="pag-info">Página ${S.pagina} de ${totalPaginas} · ${faixa}</span>
+        <button type="button" class="btn" id="pagProxima"${S.pagina >= totalPaginas ? " disabled" : ""}>Próxima ›</button>
+      </div>
     </div>
     ${
-      filtrados.length > visiveis.length
-        ? `<div class="acoes"><button type="button" class="btn" id="btnMais">Mostrar mais ${Math.min(
-            250,
-            filtrados.length - visiveis.length
-          )} de ${filtrados.length - visiveis.length} restantes</button></div>`
-        : ""
+      grupos
+        ? `<div class="trib-grupos">${gruposHtml(visiveis, indiceGlobal)}</div>`
+        : `<div class="tabela-wrap">${tabelaHtml(visiveis, indiceGlobal)}</div>`
     }
   `;
 
   alvo.querySelectorAll("[data-filtro]").forEach((b) =>
     b.addEventListener("click", () => {
       S.filtro = b.dataset.filtro;
-      S.limite = 250;
+      S.pagina = 1;
       renderizar();
     })
   );
@@ -833,7 +843,7 @@ function renderizar() {
       S.busca = busca.value;
       clearTimeout(timerBusca);
       timerBusca = setTimeout(() => {
-        S.limite = 250;
+        S.pagina = 1;
         renderizar();
         const novo = $("buscaResultado");
         if (novo) {
@@ -843,13 +853,40 @@ function renderizar() {
       }, 180);
     });
   }
-  if ($("btnMais"))
-    $("btnMais").addEventListener("click", () => {
-      S.limite += 250;
+  alvo.querySelectorAll("[data-visao]").forEach((b) =>
+    b.addEventListener("click", () => {
+      if (S.visao === b.dataset.visao) return;
+      S.visao = b.dataset.visao;
+      S.pagina = 1;
       renderizar();
+    })
+  );
+  if ($("tamanhoPagina"))
+    $("tamanhoPagina").addEventListener("change", (e) => {
+      S.tamanhoPagina = Number(e.target.value) || 25;
+      S.pagina = 1;
+      renderizar();
+    });
+  if ($("pagAnterior"))
+    $("pagAnterior").addEventListener("click", () => {
+      if (S.pagina <= 1) return;
+      S.pagina--;
+      renderizar();
+      irParaTabela();
+    });
+  if ($("pagProxima"))
+    $("pagProxima").addEventListener("click", () => {
+      S.pagina++;
+      renderizar();
+      irParaTabela();
     });
   if ($("btnCsv")) $("btnCsv").addEventListener("click", exportarCsv);
   if ($("btnXlsx")) $("btnXlsx").addEventListener("click", exportarXlsx);
+  if ($("btnImprimir"))
+    $("btnImprimir").addEventListener("click", () => {
+      prepararImpressao();
+      window.print();
+    });
 
   alvo.querySelectorAll("select[data-escolha]").forEach((sel) => {
     sel.addEventListener("click", (e) => e.stopPropagation());
@@ -860,7 +897,7 @@ function renderizar() {
     });
   });
 
-  alvo.querySelectorAll("tbody tr[data-i]").forEach((tr) => {
+  alvo.querySelectorAll("tr[data-i], li[data-i]").forEach((tr) => {
     const abrir = () => abrirDetalhe(Number(tr.dataset.i));
     tr.addEventListener("click", abrir);
     tr.addEventListener("keydown", (e) => {
@@ -870,6 +907,97 @@ function renderizar() {
       }
     });
   });
+}
+
+const PAGINAS = [10, 25, 50, 100];
+
+/** Corpo da tabela (visão "Todos os itens") com a página atual. */
+function tabelaHtml(lista, indiceGlobal) {
+  if (!lista.length) return '<p class="vazio">Nenhum item para este filtro.</p>';
+  return `<table class="resultado">
+    <thead><tr>
+      <th>Origem / nota</th>
+      <th>NCM e produto</th>
+      <th>Declarado</th>
+      <th>Correto</th>
+      <th>Situação</th>
+    </tr></thead>
+    <tbody>${lista.map((r) => linhaTabela(r, indiceGlobal.get(r))).join("")}</tbody>
+  </table>`;
+}
+
+/** Corpo da visão "Por tributação" (um bloco por tributação). */
+function gruposHtml(lista, indiceGlobal) {
+  if (!lista.length) return '<p class="vazio">Nenhum item para este filtro.</p>';
+  return lista.map((g) => grupoHtml(g, indiceGlobal)).join("");
+}
+
+function grupoHtml(g, indiceGlobal) {
+  const s = SELOS[g.status] || SELOS.revisar;
+  const ncms = new Set(g.itens.map((r) => r.ncm).filter(Boolean));
+  const itens = g.itens
+    .map((r) => {
+      const a = r.analise || {};
+      const desc = r.desc || descNcm(r.ncm);
+      const nota = [
+        r.origem,
+        r.nota ? `NF ${r.nota}${r.serie ? "/" + r.serie : ""}` : "",
+        r.item ? `item ${r.item}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      return `<li data-i="${indiceGlobal.get(r)}" tabindex="0">
+        <span class="g-ncm">${esc(r.ncm || "—")}</span>
+        <span class="g-desc">${esc(desc) || "—"}<small>${esc(nota)}</small></span>
+        <span class="g-decl">declarado ${esc(a.declCst || "—")}/${esc(a.declCc || "—")}</span>
+      </li>`;
+    })
+    .join("");
+  return `<section class="trib-grupo">
+    <header>
+      <span class="par-titulo">CST / cClassTrib</span>
+      <b class="par-valor">${esc(g.cst)} <span class="cc">${esc(g.cc)}</span></b>
+      <span class="selo ${s.classe}">${s.texto}</span>
+      ${g.manual ? '<span class="selo info">ajustado</span>' : ""}
+      <span class="g-qtd">${g.itens.length} ${g.itens.length === 1 ? "item" : "itens"} · ${ncms.size} ${
+        ncms.size === 1 ? "NCM" : "NCMs"
+      }</span>
+    </header>
+    <ul>${itens}</ul>
+  </section>`;
+}
+
+/** Agrupa os itens pela tributação correta (par CST/cClassTrib + situação). */
+function agruparPorTributacao(lista) {
+  const ordem = { div: 0, invalido: 1, revisar: 2, ok: 3, "sem-regra": 4 };
+  const mapa = new Map();
+  for (const r of lista) {
+    const a = r.analise || {};
+    const p = a.principal || (a.esperados && a.esperados[0]) || null;
+    const cst = p ? p.cst : a.declCst || "—";
+    const cc = p ? p.cc : a.declCc || "—";
+    const status = a.status || "revisar";
+    const chave = `${status}|${cst}|${cc}`;
+    let g = mapa.get(chave);
+    if (!g) {
+      g = { chave, cst, cc, status, manual: false, itens: [] };
+      mapa.set(chave, g);
+    }
+    g.itens.push(r);
+    if (a.manual) g.manual = true;
+  }
+  return Array.from(mapa.values()).sort((x, y) => {
+    const d =
+      (ordem[x.status] == null ? 9 : ordem[x.status]) - (ordem[y.status] == null ? 9 : ordem[y.status]);
+    if (d) return d;
+    return `${x.cst}${x.cc}`.localeCompare(`${y.cst}${y.cc}`);
+  });
+}
+
+/** Rola até o início da lista depois de trocar de página. */
+function irParaTabela() {
+  const el = document.querySelector("#resultados .tabela-wrap, #resultados .trib-grupos");
+  if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function linhaTabela(r, indice) {
@@ -1251,6 +1379,108 @@ function baixar(blob, nome) {
 }
 
 /* ------------------------------------------------------------------ */
+/* impressao                                                           */
+/* ------------------------------------------------------------------ */
+
+const ROTULO_FILTRO = {
+  todos: "Todos",
+  div: "Divergentes",
+  revisar: "Revisar",
+  ok: "Conformes",
+  "sem-regra": "Integral (sem regra)",
+  alerta: "Alerta de valor",
+  ajustados: "Ajustados",
+};
+
+/** Preenche a área de impressão com TODOS os itens filtrados (não só a página atual). */
+function prepararImpressao() {
+  const area = $("areaImpressao");
+  if (!area || !S.registros.length) return;
+  const filtrados = S.registros.filter(registroFiltrado);
+  const meta = [
+    `Base ${$("metaSnapshot") ? $("metaSnapshot").textContent : ""}`.trim(),
+    `Filtro: ${ROTULO_FILTRO[S.filtro] || "Todos"}${S.busca ? ` · busca "${S.busca}"` : ""} · ${filtrados.length} de ${S.registros.length} item(ns)`,
+    `Visualização: ${S.visao === "resumo" ? "por tributação" : "todos os itens"}`,
+    `Gerado em ${new Date().toLocaleString("pt-BR")}`,
+  ].join(" · ");
+  const corpo = S.visao === "resumo" ? impressaoResumo(filtrados) : impressaoItens(filtrados);
+  area.innerHTML = `<h1>Conferência IBS/CBS — NCM × CST × cClassTrib</h1><p class="meta">${esc(meta)}</p>${corpo}`;
+}
+
+function limparImpressao() {
+  const area = $("areaImpressao");
+  if (area) area.innerHTML = "";
+}
+
+function impressaoItens(lista) {
+  if (!lista.length) return '<p class="meta">Nenhum item para este filtro.</p>';
+  return `<table class="imp-tabela">
+    <thead><tr><th>Origem / nota</th><th>NCM e produto</th><th>Declarado</th><th>Correto</th><th>Situação</th></tr></thead>
+    <tbody>${lista.map(linhaImpressao).join("")}</tbody>
+  </table>`;
+}
+
+function impressaoResumo(lista) {
+  const grupos = agruparPorTributacao(lista);
+  if (!grupos.length) return '<p class="meta">Nenhum item para este filtro.</p>';
+  return grupos
+    .map((g) => {
+      const s = SELOS[g.status] || SELOS.revisar;
+      const itens = g.itens
+        .map((r) => {
+          const a = r.analise || {};
+          const desc = r.desc || descNcm(r.ncm);
+          const nota = [
+            r.origem,
+            r.nota ? `NF ${r.nota}${r.serie ? "/" + r.serie : ""}` : "",
+            r.item ? `item ${r.item}` : "",
+          ]
+            .filter(Boolean)
+            .map(esc)
+            .join(" · ");
+          return `<tr><td class="imp-ncm">${esc(r.ncm || "—")}</td><td>${esc(desc) || "—"}</td><td>${nota}</td><td class="imp-num">${esc(
+            a.declCst || "—"
+          )}/${esc(a.declCc || "—")}</td></tr>`;
+        })
+        .join("");
+      return `<section class="imp-grupo">
+        <h2>CST ${esc(g.cst)} / cClassTrib ${esc(g.cc)} <span class="imp-selo">${s.texto}</span><span class="imp-qtd">${
+        g.itens.length
+      } item(ns)</span></h2>
+        <table class="imp-tabela">
+          <thead><tr><th>NCM</th><th>Produto</th><th>Origem / nota</th><th>Declarado</th></tr></thead>
+          <tbody>${itens}</tbody>
+        </table>
+      </section>`;
+    })
+    .join("");
+}
+
+function linhaImpressao(r) {
+  const a = r.analise || {};
+  const s = SELOS[a.status] || SELOS.revisar;
+  const desc = r.desc || descNcm(r.ncm);
+  const p = a.principal || (a.esperados && a.esperados[0]) || null;
+  const correto = p ? `${esc(p.cst)} / ${esc(p.cc)}${a.manual ? " (escolha manual)" : ""}` : "—";
+  const nota = [
+    r.origem,
+    r.nota ? `NF ${r.nota}${r.serie ? "/" + r.serie : ""}` : "",
+    r.item ? `item ${r.item}` : "",
+    r.data ? dataBR(r.data) : "",
+  ]
+    .filter(Boolean)
+    .map(esc)
+    .join(" · ");
+  return `<tr>
+    <td>${nota}</td>
+    <td><b>${esc(r.ncm || "—")}</b><br>${esc(desc) || "—"}</td>
+    <td class="imp-num">${esc(a.declCst || "—")} / ${esc(a.declCc || "—")}</td>
+    <td class="imp-num">${correto}</td>
+    <td>${s.texto}</td>
+  </tr>`;
+}
+
+/* ------------------------------------------------------------------ */
 /* arquivos                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -1588,6 +1818,7 @@ function iniciar() {
     S.errosLeitura = [];
     S.filtro = "todos";
     S.busca = "";
+    S.pagina = 1;
     renderArquivos();
     renderizar();
     mostrarStatus("");
@@ -1618,6 +1849,10 @@ function iniciar() {
       $("ncmManual").focus();
     }
   });
+
+  // Impressão: monta a lista completa (todas as páginas) antes de imprimir.
+  window.addEventListener("beforeprint", prepararImpressao);
+  window.addEventListener("afterprint", limparImpressao);
 
   renderArquivos();
   carregarBase();

@@ -7,7 +7,9 @@ tributária e o site mostra:
 - o **CST** e o **cClassTrib** esperados para o NCM;
 - se o par informado no arquivo está **conforme**, **divergente** ou precisa de **revisão**;
 - todas as possibilidades **permitidas** e as **vedadas** para o NCM, com a condição de uso;
-- **alertas de valor** quando o IBS/CBS informado não reflete a redução do cClassTrib.
+- **alertas de valor** quando o IBS/CBS informado não reflete a redução do cClassTrib;
+- **paginação** (10, 25, 50 ou 100 itens por página) com as visões *todos os itens* e
+  *por tributação*, e **impressão** da lista filtrada completa (não só da página atual).
 
 Tudo roda no navegador: nenhum arquivo é enviado a servidor.
 
@@ -23,9 +25,10 @@ Cada `push` na `main` republica o site automaticamente (o `.nojekyll` mantém os
 `data/*.json` servidos sem processamento do Jekyll).
 
 O cache do navegador é contornado por um parâmetro de versão nos assets: os links de CSS/JS
-em `index.html` usam `?v=AAAAMMDD` e `assets/app.js` repete o valor na constante `VERSAO`
+em `index.html` usam `?v=AAAAMMDD` (aceita sufixo, ex. `2026.10.21b`, quando houver mais de
+uma publicação no mesmo dia) e `assets/app.js` repete o valor na constante `VERSAO`
 (usada também nos `data/*.json` e no `unrar`). Ao publicar uma alteração, atualize os dois
-com a mesma data — ou com o hash curto do commit.
+com o mesmo valor — ou use o hash curto do commit.
 
 ## Uso local
 
@@ -48,11 +51,22 @@ python -m http.server 8000
 2. **Conferir um NCM** — digite o código (4 a 8 dígitos) para consultar sem arquivo.
 3. **Filtrar** por divergentes, revisar, conformes, integral (sem regra), alertas de valor
    ou ajustados (itens com tributação escolhida manualmente).
-4. **Escolher a tributação** — quando o NCM tem mais de uma possibilidade permitida, a
+4. **Percorrer o resultado** — a lista é paginada: escolha **10, 25, 50 ou 100 itens por
+   página** e navegue com **‹ Anterior** / **Próxima ›**. Ao lado aparece a página atual e a
+   faixa exibida (ex.: *Página 1 de 4 · 1–25 de 87 itens*). Trocar o filtro, a busca, a
+   visão ou o tamanho da página volta para a primeira página.
+5. **Alternar a visão** — **Todos os itens** mostra um item por linha (mesmo quando vários
+   têm a mesma tributação); **Por tributação** agrupa os itens pelo par CST/cClassTrib
+   correto + situação, com a quantidade, os NCMs e a lista de cada grupo, para imprimir
+   separadamente os itens de mesma tributação e os de tributação diferente.
+6. **Escolher a tributação** — quando o NCM tem mais de uma possibilidade permitida, a
    coluna `Correto` mostra um seletor com todas as opções; no detalhe do item há o botão
    **Usar esta tributação** em cada possibilidade (e **Voltar à sugestão automática**).
    A escolha vale para a coluna `Correto`, para os contadores e para a aba `Corrigida`.
-5. **Exportar** em CSV ou planilha Excel (duas abas: `Conferência` e `Corrigida`).
+7. **Imprimir** — o botão **Imprimir** (ou `Ctrl+P`) monta um relatório com **todos os itens
+   filtrados**, não só os da página atual, na visão escolhida (item a item ou por
+   tributação). A tela continua paginada; só a impressão sai completa.
+8. **Exportar** em CSV ou planilha Excel (duas abas: `Conferência` e `Corrigida`).
    A exportação sempre inclui **todos os itens conferidos**, mesmo com um filtro aplicado na tela.
 
 ### Colunas reconhecidas na planilha
