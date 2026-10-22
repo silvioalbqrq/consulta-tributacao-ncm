@@ -30,7 +30,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.22f";
+const VERSAO = "2026.10.22g";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -270,19 +270,20 @@ function analisarItem(reg) {
 function aplicarEscolha(analise, reg) {
   const escolha = codigoPad(reg.escolha, 6);
   const opcoes = analise.esperados || [];
-  if (!escolha || opcoes.length < 2) return analise;
+  if (!escolha || !opcoes.length) return analise;
   const cand = opcoes.find((o) => o.cc === escolha);
   if (!cand) return analise;
 
   analise.manual = true;
   analise.principal = cand;
   const compativel = analise.declCc === cand.cc && (!analise.declCst || analise.declCst === cand.cst);
+  const possibilidades = `${opcoes.length} possibilidade${opcoes.length === 1 ? "" : "s"}`;
   if (compativel) {
     analise.status = "ok";
-    analise.nota = `CST e cClassTrib compatíveis com o NCM (tributação escolhida manualmente entre ${opcoes.length} possibilidades).`;
+    analise.nota = `CST e cClassTrib compatíveis com o NCM (tributação escolhida manualmente entre ${possibilidades}).`;
   } else {
     analise.status = "div";
-    analise.nota = `Correção definida manualmente: CST ${cand.cst} / cClassTrib ${cand.cc}, escolhido entre ${opcoes.length} possibilidades do NCM.`;
+    analise.nota = `Correção definida manualmente: CST ${cand.cst} / cClassTrib ${cand.cc}, escolhido entre ${possibilidades} do NCM.`;
   }
   analise.alertas = checarValores(reg, cand);
   return analise;
@@ -945,6 +946,15 @@ function renderizar() {
     });
   });
 
+  alvo.querySelectorAll("select[data-grupo]").forEach((sel) => {
+    sel.addEventListener("click", (e) => e.stopPropagation());
+    sel.addEventListener("keydown", (e) => e.stopPropagation());
+    sel.addEventListener("change", (e) => {
+      e.stopPropagation();
+      aplicarEscolhaGrupo(sel.dataset.grupo, sel.value);
+    });
+  });
+
   alvo.querySelectorAll("tr[data-i], li[data-i]").forEach((tr) => {
     const abrir = () => abrirDetalhe(Number(tr.dataset.i));
     tr.addEventListener("click", abrir);
@@ -1036,17 +1046,57 @@ function linhaGrupo(g, mostrarEmitente) {
       lista.join(" · ")
     )}">${texto}</span>`;
   };
+  const opcoes = g.status === "div" || g.status === "revisar" ? opcoesGrupo(g) : [];
+  let correto;
+  if (opcoes.length) {
+    const unica = opcoes.length === 1
+      ? `<span class="valor">${esc(opcoes[0].cst)}/${esc(opcoes[0].cc)}</span>`
+      : "";
+    correto = `<span class="rotulo">CST / cClassTrib</span>${unica}${selectGrupo(g, opcoes)}${
+      opcoes.length > 1 ? `<span class="rotulo">${opcoes.length} opções</span>` : ""
+    }`;
+  } else {
+    correto = par(r.corretos, "pares");
+  }
   return `<tr class="grupo-produto">
     <td class="origem">${emit}<div class="produto"><span class="cod-prod">${g.porNcm ? "NCM" : "código"} ${esc(
     g.codigo
   )}</span><span class="desc">${g.itens.length} ${g.itens.length === 1 ? "item" : "itens"}</span></div></td>
     <td class="num"><b>${ncm}</b><div class="produto"><span class="desc">${esc(r.desc) || "—"}</span></div></td>
     <td class="par">${par(r.declarados, "tributações")}</td>
-    <td class="par">${par(r.corretos, "pares")}</td>
-    <td><span class="selo ${s.classe}">${s.texto}</span></td>
+    <td class="par">${correto}</td>
+    <td><span class="selo ${s.classe}">${s.texto}</span>${escolhaGrupo(g) ? '<span class="selo info">ajustado</span>' : ""}</td>
   </tr>`;
 }
 
+/** Opções de tributação válidas para todos os itens do grupo. */
+function opcoesGrupo(g) {
+  let comuns = null;
+  for (const r of g.itens) {
+    const ccs = new Set(((r.analise && r.analise.esperados) || []).map((o) => o.cc));
+    comuns = comuns ? new Set([...comuns].filter((cc) => ccs.has(cc))) : ccs;
+  }
+  const base = (g.itens[0] && g.itens[0].analise && g.itens[0].analise.esperados) || [];
+  return base.filter((o) => comuns && comuns.has(o.cc));
+}
+
+/** Escolha manual uniforme do grupo, ou vazio quando os itens estão em estados diferentes. */
+function escolhaGrupo(g) {
+  const ccs = g.itens.map((r) => (r.analise && r.analise.manual ? r.analise.principal.cc : ""));
+  return ccs.length && ccs.every((cc) => cc && cc === ccs[0]) ? ccs[0] : "";
+}
+
+function selectGrupo(g, opcoes) {
+  const atual = escolhaGrupo(g);
+  const auto = g.itens[0] && g.itens[0].analise ? g.itens[0].analise.principalAuto : null;
+  const opts = opcoes
+    .map((x) => {
+      const sug = auto && x.cc === auto.cc ? " · sugestão" : "";
+      return `<option value="${esc(x.cc)}"${x.cc === atual ? " selected" : ""}>${esc(x.cc)} (CST ${esc(x.cst)}${sug})</option>`;
+    })
+    .join("");
+  return `<select class="escolha-cc" data-grupo="${esc(g.chave)}" aria-label="Escolher a tributação do produto (${opcoes.length} opções permitidas)"><option value="">— escolher —</option>${opts}</select>`;
+}
 
 /** Agrupa por emitente + código do produto (cProd); sem o código, por emitente + NCM. */
 function agruparPorCodigo(lista) {
@@ -1060,7 +1110,7 @@ function agruparPorCodigo(lista) {
     const chave = `${norm(emitente)}|${codProd ? "c:" : "n:"}${codigo}`;
     let g = mapa.get(chave);
     if (!g) {
-      g = { codigo, emitente, porNcm: !codProd, status: "ok", itens: [] };
+      g = { chave, codigo, emitente, porNcm: !codProd, status: "ok", itens: [] };
       mapa.set(chave, g);
     }
     g.itens.push(r);
@@ -1080,16 +1130,19 @@ function irParaTabela() {
   if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-/** Seletor do CST/cClassTrib correto quando o NCM tem mais de uma possibilidade. */
+/** Seletor do CST/cClassTrib nas situações divergente/revisar ou com mais de uma possibilidade. */
 function selectCorreto(a, indice) {
   const e = a.principal || a.esperados[0];
   const opts = a.esperados
     .map((x) => {
       const sug = a.principalAuto && x.cc === a.principalAuto.cc ? " · sugestão" : "";
-      return `<option value="${esc(x.cc)}"${x.cc === e.cc ? " selected" : ""}>${esc(x.cc)} (CST ${esc(x.cst)}${sug})</option>`;
+      const sel = a.esperados.length === 1 && !a.manual ? "" : x.cc === e.cc ? " selected" : "";
+      return `<option value="${esc(x.cc)}"${sel}>${esc(x.cc)} (CST ${esc(x.cst)}${sug})</option>`;
     })
     .join("");
-  return `<select class="escolha-cc" data-escolha="${indice}" aria-label="Escolher a tributação do item (${a.esperados.length} opções permitidas)">${opts}</select>`;
+  const vazio =
+    a.esperados.length === 1 ? `<option value=""${a.manual ? "" : " selected"}>— escolher —</option>` : "";
+  return `<select class="escolha-cc" data-escolha="${indice}" aria-label="Escolher a tributação do item (${a.esperados.length} opções permitidas)">${vazio}${opts}</select>`;
 }
 
 function linhaTabela(r, indice) {
@@ -1102,9 +1155,17 @@ function linhaTabela(r, indice) {
   let correto = "";
   if (a.esperados && a.esperados.length) {
     const e = a.principal || a.esperados[0];
-    if (a.esperados.length > 1) {
-      correto = `<span class="rotulo">CST / cClassTrib</span>${selectCorreto(a, i)}${
-        a.manual ? '<span class="escolha-nota">escolha manual</span>' : `<span class="rotulo">${a.esperados.length} opções</span>`
+    const escolher = a.esperados.length > 1 || a.status === "div" || a.status === "revisar";
+    if (escolher) {
+      const par = a.esperados.length === 1
+        ? `<span class="valor">${esc(e.cst)} <span class="cc">${esc(e.cc)}</span></span>`
+        : "";
+      correto = `<span class="rotulo">CST / cClassTrib</span>${par}${selectCorreto(a, i)}${
+        a.manual
+          ? '<span class="escolha-nota">escolha manual</span>'
+          : a.esperados.length > 1
+            ? `<span class="rotulo">${a.esperados.length} opções</span>`
+            : ""
       }`;
     } else {
       correto = `<span class="rotulo">CST / cClassTrib</span><span class="valor">${esc(e.cst)} <span class="cc">${esc(e.cc)}</span></span>`;
@@ -1155,10 +1216,9 @@ function reaplicarEscolhas(registros) {
 function definirEscolha(indice, cc) {
   const r = S.registros[indice];
   if (!r) return;
-  const auto = r.analise && r.analise.principalAuto;
   const cod = codigoPad(cc, 6);
-  if (!cod || (auto && cod === auto.cc)) delete r.escolha;
-  else r.escolha = cod;
+  if (cod) r.escolha = cod;
+  else delete r.escolha;
   lembrarEscolha(r);
   r.analise = analisarItem(r);
   renderizar();
@@ -1166,9 +1226,31 @@ function definirEscolha(indice, cc) {
   if ($("dlg").open) abrirDetalhe(indice);
 }
 
+/** Aplica a escolha a todos os itens do mesmo emitente + código do produto. */
+function escolherGrupo(chave, cc) {
+  const cod = codigoPad(cc, 6);
+  const g = agruparPorCodigo(S.registros).find((x) => x.chave === chave);
+  if (!g) return null;
+  for (const r of g.itens) {
+    const opcoes = (r.analise && r.analise.esperados) || [];
+    if (cod && !opcoes.some((o) => o.cc === cod)) continue;
+    if (cod) r.escolha = cod;
+    else delete r.escolha;
+    lembrarEscolha(r);
+    r.analise = analisarItem(r);
+  }
+  return g;
+}
+
+function aplicarEscolhaGrupo(chave, cc) {
+  if (!escolherGrupo(chave, cc)) return;
+  renderizar();
+  resumoStatus();
+}
+
 /** Título da caixa "Correto" no detalhe do item. */
 function tituloCorreto(a, opcoes) {
-  if (a.manual) return `Escolhido entre ${opcoes.length} possibilidades`;
+  if (a.manual) return `Escolhido entre ${opcoes.length} possibilidade${opcoes.length === 1 ? "" : "s"}`;
   if (a.status === "ok") return "Confirmado no item";
   if (opcoes.length > 1) return `Sugestão (1 de ${opcoes.length})`;
   return "Esperado para o NCM";
@@ -1184,7 +1266,7 @@ function abrirDetalhe(indice) {
   const opcoes = a.esperados || [];
   const escolhidoCc = a.principal ? a.principal.cc : "";
   const autoCc = a.principalAuto ? a.principalAuto.cc : "";
-  const podeEscolher = opcoes.length > 1;
+  const podeEscolher = opcoes.length > 1 || a.status === "div" || a.status === "revisar";
 
   const candidatoCard = (c, vedado) => `
     <div class="candidato${vedado ? " vedado" : ""}${podeEscolher && !vedado && c.cc === escolhidoCc ? " escolhido" : ""}">

@@ -65,11 +65,14 @@ python -m http.server 8000
    do grupo. O mesmo código em fornecedores diferentes não se mistura, e o emitente aparece
    quando o lote tem mais de uma empresa. Se os itens do código tiverem declarações
    diferentes, a coluna mostra a quantidade (ex.: *2 tributações*). Arquivos sem a coluna de
-   código são agrupados pelo NCM.
-6. **Escolher a tributação** — quando o NCM tem mais de uma possibilidade permitida, a
-   coluna `Correto` mostra um seletor com todas as opções; no detalhe do item há o botão
-   **Usar esta tributação** em cada possibilidade (e **Voltar à sugestão automática**).
-   A escolha vale para a coluna `Correto`, para os contadores e para a aba `Corrigida`.
+   código são agrupados pelo NCM. Na visão por código, a coluna `Correto` também mostra o
+   seletor de CST/cClassTrib quando o grupo está **divergente** ou em **revisão**, e a
+   escolha vale para todos os itens daquele código.
+6. **Escolher a tributação** — nas situações **Divergente** e **Revisar** (e quando o NCM tem
+   mais de uma possibilidade permitida), a coluna `Correto` mostra um seletor com as opções;
+   no detalhe do item há o botão **Usar esta tributação** em cada possibilidade (e **Voltar à
+   sugestão automática**). A escolha vale para a coluna `Correto`, para os contadores e para a
+   aba `Corrigida`.
 7. **Imprimir** — o botão **Imprimir** (ou `Ctrl+P`) monta um relatório com **todos os itens
    filtrados**, não só os da página atual, na visão escolhida: item a item ou **uma linha por
    código do produto**, igual à tela. A tela continua paginada; só a impressão sai completa.

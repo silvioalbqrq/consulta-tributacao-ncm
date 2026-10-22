@@ -10,11 +10,11 @@ const ler = (caminho) => readFileSync(new URL(caminho, raiz), "utf8");
 globalThis.document = { addEventListener() {} };
 vm.runInThisContext(
   `${ler("assets/app.js")}
-globalThis.__app = { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, linhaTabela, gruposHtml, resumoGrupo, impressaoProdutos, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo };`,
+globalThis.__app = { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, linhaTabela, gruposHtml, resumoGrupo, impressaoProdutos, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo, escolherGrupo };`,
   { filename: "app.js" }
 );
 
-const { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, linhaTabela, gruposHtml, resumoGrupo, impressaoProdutos, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo } = globalThis.__app;
+const { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, linhaTabela, gruposHtml, resumoGrupo, impressaoProdutos, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo, escolherGrupo } = globalThis.__app;
 S.cat = JSON.parse(ler("data/cst-cclasstrib.json"));
 S.regras = JSON.parse(ler("data/ncm-regras.json"));
 
@@ -69,6 +69,11 @@ checar(outroNcm.escolha === undefined, "a escolha não vaza para outro NCM");
 delete relido.escolha;
 lembrarEscolha(relido);
 checar(!S.escolhas.has(chaveEscolha(relido)), "voltar à sugestão apaga a escolha guardada");
+const unico = analisarItem(item({ ncm: "02013000", cst: "000", cc: "000001", escolha: "200003" }));
+checar(
+  unico.manual === true && unico.principal.cc === "200003",
+  "escolha também vale quando o NCM tem uma única possibilidade"
+);
 
 console.log("Agrupamento por código do produto");
 const registros = [
@@ -95,14 +100,52 @@ const itemGrupo = {
     esperados: [{ cst: "200", cc: "200003" }], principal: { cst: "200", cc: "200003" },
   },
 };
-const grupo = { codigo: "2", emitente: "FORNECEDOR A", porNcm: false, status: "div", itens: [itemGrupo] };
+const grupo = {
+  chave: "fornecedor a|c:2", codigo: "2", emitente: "FORNECEDOR A", porNcm: false, status: "div", itens: [itemGrupo],
+};
 const htmlGrupo = gruposHtml([grupo], false);
 checar((htmlGrupo.match(/<tr class="grupo-produto">/g) || []).length === 1, "cada código vira uma única linha");
 checar(!htmlGrupo.includes("data-i="), "a linha do código não traz os itens embaixo");
 checar(htmlGrupo.includes("código 2"), "a linha mostra o código");
 checar(htmlGrupo.includes("000/000001") && htmlGrupo.includes("200/200003"), "a linha mostra o declarado e o correto");
 checar(htmlGrupo.includes("Divergente"), "a linha mostra a situação do grupo");
+checar(
+  htmlGrupo.includes("data-grupo=") && htmlGrupo.includes("— escolher —"),
+  "o grupo divergente mostra o seletor de CST/cClassTrib"
+);
 checar(linhaTabela(itemGrupo, 0).includes("cód. 2"), "a visão de todos os itens continua mostrando o código");
+checar(
+  linhaTabela(itemGrupo, 0).includes("data-escolha="),
+  "o item divergente com uma opção mostra o seletor"
+);
+const analiseRevisar = analisarItem(item({ ncm: "02102000", cst: "000", cc: "000001" }));
+const grupoRevisar = {
+  ...grupo,
+  chave: "fornecedor a|c:3",
+  codigo: "3",
+  status: "revisar",
+  itens: [{ ...itemGrupo, codProd: "3", ncm: "02102000", analise: analiseRevisar }],
+};
+const htmlRevisar = gruposHtml([grupoRevisar], false);
+checar(
+  htmlRevisar.includes("data-grupo=") && htmlRevisar.includes("515001"),
+  "o grupo em revisar mostra o seletor com as três opções"
+);
+S.escolhas.clear();
+const itemDoGrupo = {
+  origem: "nota.xml", nota: "10", item: "1", codProd: "9", ncm: "02102000",
+  cst: "000", cc: "000001", semGrupo: false, valores: {},
+};
+itemDoGrupo.analise = analisarItem(itemDoGrupo);
+S.registros = [itemDoGrupo];
+const g9 = agruparPorCodigo(S.registros)[0];
+escolherGrupo(g9.chave, "515001");
+checar(
+  itemDoGrupo.escolha === "515001" && itemDoGrupo.analise.manual === true,
+  "a escolha no grupo vale para o item do grupo"
+);
+escolherGrupo(g9.chave, "");
+checar(!itemDoGrupo.escolha && !itemDoGrupo.analise.manual, "o seletor do grupo também volta à sugestão");
 const impresso = impressaoProdutos([itemGrupo]);
 checar((impresso.match(/<tr>/g) || []).length === 2, "a impressão tem só o cabeçalho e uma linha por código");
 checar(!impresso.includes("item 1"), "a impressão não lista os itens");
