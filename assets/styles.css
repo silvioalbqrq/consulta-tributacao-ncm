@@ -529,11 +529,7 @@ tr.grupo-produto td {
   font-size: 12.5px;
   color: var(--muted);
 }
-tr.grupo-produto .g-cod { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
-tr.grupo-produto .g-ncmh { font-variant-numeric: tabular-nums; }
-tr.grupo-produto .g-desch { color: var(--ink); }
-tr.grupo-produto .g-qtd { float: right; font-variant-numeric: tabular-nums; }
-tr.grupo-produto .g-qtd.alerta { color: var(--warn); font-weight: 600; }
+tr.grupo-produto .valor { color: var(--ink); }
 
 /* ---------- tabela ---------- */
 .tabela-wrap {
@@ -907,7 +903,6 @@ dialog#dlg::backdrop { background: rgba(9, 25, 42, .55); backdrop-filter: blur(2
 
 #areaImpressao .imp-tabela th { background: #eef2f7; font-weight: 700; }
 #areaImpressao .imp-tabela .imp-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-#areaImpressao .imp-tabela .imp-ncm { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 #areaImpressao .cod-prod {
   background: none;
@@ -917,11 +912,6 @@ dialog#dlg::backdrop { background: rgba(9, 25, 42, .55); backdrop-filter: blur(2
   font-size: 9.5px;
   color: #333;
 }
-
-#areaImpressao .imp-grupo { margin: 0 0 14px; break-inside: avoid; }
-#areaImpressao .imp-grupo h2 { font-size: 12px; margin: 0 0 4px; }
-#areaImpressao .imp-selo { font-weight: 400; font-size: 10.5px; color: #444; margin-left: 6px; }
-#areaImpressao .imp-qtd { float: right; font-weight: 400; font-size: 10.5px; color: #444; }
 
 /* ---------- utilitários de texto (substituem style="" nos templates) ---------- */
 .h1-sub { font-weight: 400; color: #c8d6e5; font-size: .62em; display: block; margin-top: 6px; }
@@ -934,7 +924,6 @@ dialog#dlg::backdrop { background: rgba(9, 25, 42, .55); backdrop-filter: blur(2
 .card .ajuda-fim { margin: 10px 0 0; }
 .lista-ncms { max-height: 240px; display: block; }
 .btn-link { border: 0; background: none; padding: 0; font-weight: 600; }
-tr.grupo-produto .g-emit { font-size: 11.5px; }
 
 @media print {
   .topo, .entradas, #status, #resultados, .rodape, .barra, .barra-sec, dialog,

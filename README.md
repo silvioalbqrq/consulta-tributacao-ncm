@@ -60,22 +60,19 @@ python -m http.server 8000
    Ao lado aparece a página atual e a faixa exibida (ex.: *Página 1 de 4 · 1–25 de 87 itens*).
    Trocar o filtro, a busca, a visão ou o tamanho da página volta para a primeira página.
 5. **Alternar a visão** — **Todos os itens** mostra um item por linha; **Por código do
-   produto** usa **a mesma tabela**, com as mesmas colunas, mas ordenada por `cProd`
-   (código do produto do XML, ou a coluna de código da planilha) **e pelo emitente** — o
-   mesmo código em fornecedores diferentes não se mistura, e a linha separadora mostra o
-   emitente quando o lote tem mais de uma empresa. Cada produto tem uma **linha
-   separadora**: código, NCM, descrição, situação e quantidade de itens, e o código aparece
-   só nessa linha (os itens abaixo não o repetem). Se o mesmo
-   produto vier com CST/cClassTrib declarados diferentes em notas diferentes, a
-   quantidade aparece em âmbar (*2 tributações declaradas*). Arquivos sem a coluna de
+   produto** mostra **uma linha por código** (por emitente), sem listar os itens embaixo:
+   código, NCM, descrição, tributações declaradas e corretas, quantidade de itens e situação
+   do grupo. O mesmo código em fornecedores diferentes não se mistura, e o emitente aparece
+   quando o lote tem mais de uma empresa. Se os itens do código tiverem declarações
+   diferentes, a coluna mostra a quantidade (ex.: *2 tributações*). Arquivos sem a coluna de
    código são agrupados pelo NCM.
 6. **Escolher a tributação** — quando o NCM tem mais de uma possibilidade permitida, a
    coluna `Correto` mostra um seletor com todas as opções; no detalhe do item há o botão
    **Usar esta tributação** em cada possibilidade (e **Voltar à sugestão automática**).
    A escolha vale para a coluna `Correto`, para os contadores e para a aba `Corrigida`.
 7. **Imprimir** — o botão **Imprimir** (ou `Ctrl+P`) monta um relatório com **todos os itens
-   filtrados**, não só os da página atual, na visão escolhida (item a item ou por código do
-   produto). A tela continua paginada; só a impressão sai completa.
+   filtrados**, não só os da página atual, na visão escolhida: item a item ou **uma linha por
+   código do produto**, igual à tela. A tela continua paginada; só a impressão sai completa.
 8. **Exportar** em CSV ou planilha Excel. Na visão **todos os itens** saem duas abas
    (`Conferência` e `Corrigida`), uma linha por item, com a coluna **Emitente** ao lado da
    origem. Na visão **por código do produto** sai uma aba (`Por código`) com **uma linha por

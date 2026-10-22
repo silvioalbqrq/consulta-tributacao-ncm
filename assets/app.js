@@ -30,7 +30,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.22e";
+const VERSAO = "2026.10.22f";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -854,7 +854,7 @@ function renderizar() {
     </div>
     ${
       grupos
-        ? `<div class="tabela-wrap">${gruposHtml(visiveis, indiceGlobal, mostrarEmitente)}</div>`
+        ? `<div class="tabela-wrap">${gruposHtml(visiveis, mostrarEmitente)}</div>`
         : `<div class="tabela-wrap">${tabelaHtml(visiveis, indiceGlobal)}</div>`
     }
     <div class="barra-pag">
@@ -982,10 +982,10 @@ function codigoProduto(r) {
 }
 
 /** Moldura da tabela de resultados (mesmas colunas nas duas visões). */
-function tabelaResultado(corpo) {
+function tabelaResultado(corpo, produto, mostrarEmitente) {
   return `<table class="resultado">
     <thead><tr>
-      <th>Origem / nota</th>
+      <th>${produto ? (mostrarEmitente ? "Emitente / código" : "Código do produto") : "Origem / nota"}</th>
       <th>NCM e produto</th>
       <th>Declarado</th>
       <th>Correto</th>
@@ -1001,36 +1001,50 @@ function tabelaHtml(lista, indiceGlobal) {
   return tabelaResultado(lista.map((r) => linhaTabela(r, indiceGlobal.get(r))).join(""));
 }
 
-/** Corpo da visão "Por código do produto": a mesma tabela, com uma linha por produto. */
-function gruposHtml(lista, indiceGlobal, mostrarEmitente) {
+/** Corpo da visão "Por código do produto": uma linha por produto, sem os itens. */
+function gruposHtml(lista, mostrarEmitente) {
   if (!lista.length) return '<p class="vazio">Nenhum item para este filtro.</p>';
-  return tabelaResultado(lista.map((g) => grupoLinhas(g, indiceGlobal, mostrarEmitente)).join(""));
+  return tabelaResultado(lista.map((g) => linhaGrupo(g, mostrarEmitente)).join(""), true, mostrarEmitente);
 }
 
-/** Linha do produto (separador do grupo) + os itens na tabela de "Todos os itens". */
-function grupoLinhas(g, indiceGlobal, mostrarEmitente) {
-  const ncms = new Set(g.itens.map((r) => r.ncm).filter(Boolean));
-  const declarados = new Set(
-    g.itens.map((r) => {
-      const a = r.analise || {};
-      return `${a.declCst || "—"}/${a.declCc || "—"}`;
-    })
-  ).size;
+/** Dados resumidos de um grupo (emitente + código) para tela, impressão e exportação. */
+function resumoGrupo(g) {
+  const analiseDe = (r) => r.analise || {};
+  const parCorreto = (r) => {
+    const a = analiseDe(r);
+    const e = a.principal || (a.esperados && a.esperados[0]);
+    return e ? `${e.cst}/${e.cc}` : "—";
+  };
+  const unicos = (lista) => [...new Set(lista)];
+  return {
+    ncms: unicos(g.itens.map((r) => r.ncm).filter(Boolean)),
+    desc: descricaoItem(g.itens[0]) || "",
+    declarados: unicos(g.itens.map((r) => `${analiseDe(r).declCst || "—"}/${analiseDe(r).declCc || "—"}`)),
+    corretos: unicos(g.itens.map(parCorreto)),
+  };
+}
+
+/** Uma linha por código do produto, sem repetir os itens embaixo. */
+function linhaGrupo(g, mostrarEmitente) {
+  const r = resumoGrupo(g);
   const s = SELOS[g.status] || SELOS.revisar;
-  let ncmTxt = "";
-  if (ncms.size === 1) ncmTxt = `NCM ${[...ncms][0]}`;
-  else if (ncms.size > 1) ncmTxt = `${ncms.size} NCMs`;
-  const emit = mostrarEmitente && g.emitente ? `<span class="g-emit">${esc(g.emitente)}</span>` : "";
-  return `<tr class="grupo-produto"><td colspan="5">
-      <span class="g-cod">${g.porNcm ? "NCM" : "código do produto"} ${esc(g.codigo)}</span>
-      ${g.porNcm || !ncmTxt ? "" : `<span class="g-ncmh">${esc(ncmTxt)}</span>`}
-      ${emit}
-      <span class="g-desch">${esc(descricaoItem(g.itens[0]))}</span>
-      <span class="selo ${s.classe}">${s.texto}</span>
-      <span class="g-qtd${declarados > 1 ? " alerta" : ""}">${g.itens.length} ${
-    g.itens.length === 1 ? "item" : "itens"
-  }${declarados > 1 ? ` · ${declarados} tributações declaradas` : ""}</span>
-    </td></tr>${g.itens.map((r) => linhaTabela(r, indiceGlobal.get(r), true)).join("")}`;
+  const emit = mostrarEmitente && g.emitente ? `<b>${esc(g.emitente)}</b>` : "";
+  const ncm = r.ncms.length === 1 ? esc(r.ncms[0]) : r.ncms.length ? `${r.ncms.length} NCMs` : "—";
+  const par = (lista, plural) => {
+    const texto = lista.length === 1 ? esc(lista[0]) : `${lista.length} ${plural}`;
+    return `<span class="rotulo">CST / cClassTrib</span><span class="valor" title="${esc(
+      lista.join(" · ")
+    )}">${texto}</span>`;
+  };
+  return `<tr class="grupo-produto">
+    <td class="origem">${emit}<div class="produto"><span class="cod-prod">${g.porNcm ? "NCM" : "código"} ${esc(
+    g.codigo
+  )}</span><span class="desc">${g.itens.length} ${g.itens.length === 1 ? "item" : "itens"}</span></div></td>
+    <td class="num"><b>${ncm}</b><div class="produto"><span class="desc">${esc(r.desc) || "—"}</span></div></td>
+    <td class="par">${par(r.declarados, "tributações")}</td>
+    <td class="par">${par(r.corretos, "pares")}</td>
+    <td><span class="selo ${s.classe}">${s.texto}</span></td>
+  </tr>`;
 }
 
 
@@ -1078,7 +1092,7 @@ function selectCorreto(a, indice) {
   return `<select class="escolha-cc" data-escolha="${indice}" aria-label="Escolher a tributação do item (${a.esperados.length} opções permitidas)">${opts}</select>`;
 }
 
-function linhaTabela(r, indice, semCodigo) {
+function linhaTabela(r, indice) {
   const i = indice;
   const a = r.analise || {};
   const s = SELOS[a.status] || SELOS.revisar;
@@ -1108,7 +1122,7 @@ function linhaTabela(r, indice, semCodigo) {
 
   return `<tr data-i="${i}" tabindex="0">
     <td class="origem"><b title="${esc(r.origem)}">${esc(r.origem)}</b>${notaTxt || "—"}</td>
-    <td class="num"><b>${esc(r.ncm || "—")}</b><div class="produto">${semCodigo ? "" : codigoProduto(r)}<span class="desc">${esc(desc) || "—"}</span></div></td>
+    <td class="num"><b>${esc(r.ncm || "—")}</b><div class="produto">${codigoProduto(r)}<span class="desc">${esc(desc) || "—"}</span></div></td>
     <td class="par"><span class="rotulo">CST / cClassTrib</span><span class="valor">${esc(a.declCst || "—")} <span class="cc">${esc(a.declCc || "—")}</span></span></td>
     <td class="par">${correto}</td>
     <td><span class="selo ${s.classe}">${s.texto}</span>${a.manual ? '<span class="selo info">ajustado</span>' : ""}${alerta}</td>
@@ -1444,23 +1458,17 @@ function cabecalhoProduto() {
 
 /** Uma linha por produto (emitente + código), sem repetir o código. */
 function linhaGrupoExport(g) {
-  const analiseDe = (r) => r.analise || {};
-  const parCorreto = (r) => {
-    const x = analiseDe(r);
-    const e = x.principal || (x.esperados && x.esperados[0]);
-    return e ? `${e.cst}/${e.cc}` : "—";
-  };
-  const distintos = (lista) => [...new Set(lista)].join(", ");
-  const total = g.itens.reduce((s, r) => s + num(r.valor), 0);
+  const r = resumoGrupo(g);
+  const total = g.itens.reduce((s, x) => s + num(x.valor), 0);
   return [
     g.emitente || "",
     g.codigo,
-    distintos(g.itens.map((r) => r.ncm).filter(Boolean)),
-    descricaoItem(g.itens[0]) || "",
+    r.ncms.join(", "),
+    r.desc,
     g.itens.length,
     Math.round(total * 100) / 100,
-    distintos(g.itens.map((r) => `${analiseDe(r).declCst || "—"}/${analiseDe(r).declCc || "—"}`)),
-    distintos(g.itens.map(parCorreto)),
+    r.declarados.join(", "),
+    r.corretos.join(", "),
     (SELOS[g.status] || SELOS.revisar).texto,
   ];
 }
@@ -1600,35 +1608,26 @@ function impressaoProdutos(lista) {
   if (!grupos.length) return '<p class="meta">Nenhum item para este filtro.</p>';
   // Mesma regra da tela: o emitente só aparece quando o lote tem mais de um.
   const multi = new Set(lista.map((r) => r.emitente).filter(Boolean)).size > 1;
-  return grupos
+  const pares = (lista) => lista.map((x) => esc(x)).join("<br>");
+  const linhas = grupos
     .map((g) => {
+      const r = resumoGrupo(g);
       const s = SELOS[g.status] || SELOS.revisar;
-      const itens = g.itens
-        .map((r) => {
-          const a = r.analise || {};
-          const st = SELOS[a.status] || SELOS.revisar;
-          const e = a.principal || (a.esperados && a.esperados[0]);
-          const correto = e ? `${e.cst}/${e.cc}` : "—";
-          return `<tr><td class="imp-ncm">${esc(r.ncm || "—")}</td><td>${esc(
-            contextoItem(r, { data: true })
-          )}</td><td class="imp-num">${esc(a.declCst || "—")}/${esc(a.declCc || "—")}</td><td class="imp-num">${esc(
-            correto
-          )}</td><td>${st.texto}</td></tr>`;
-        })
-        .join("");
-      return `<section class="imp-grupo">
-        <h2>${g.porNcm ? "NCM" : "cód."} ${esc(g.codigo)} — ${esc(descricaoItem(g.itens[0]) || "—")}${
-        multi && g.emitente ? ` · ${esc(g.emitente)}` : ""
-      } <span class="imp-selo">${
-        s.texto
-      }</span><span class="imp-qtd">${g.itens.length} item(ns)</span></h2>
-        <table class="imp-tabela">
-          <thead><tr><th>NCM</th><th>Origem / nota</th><th>Declarado</th><th>Correto</th><th>Situação</th></tr></thead>
-          <tbody>${itens}</tbody>
-        </table>
-      </section>`;
+      const ncm = r.ncms.length === 1 ? esc(r.ncms[0]) : r.ncms.length ? `${r.ncms.length} NCMs` : "—";
+      const emit = multi && g.emitente ? `${esc(g.emitente)} · ` : "";
+      return `<tr>
+        <td><b>${emit}${g.porNcm ? "NCM" : "código"} ${esc(g.codigo)}</b><br>${g.itens.length} item(ns)</td>
+        <td>${ncm}<br>${esc(r.desc) || "—"}</td>
+        <td class="imp-num">${pares(r.declarados)}</td>
+        <td class="imp-num">${pares(r.corretos)}</td>
+        <td>${s.texto}</td>
+      </tr>`;
     })
     .join("");
+  return `<table class="imp-tabela">
+    <thead><tr><th>${multi ? "Emitente / código" : "Código do produto"}</th><th>NCM e produto</th><th>Declarado</th><th>Correto</th><th>Situação</th></tr></thead>
+    <tbody>${linhas}</tbody>
+  </table>`;
 }
 
 function linhaImpressao(r) {

@@ -10,11 +10,11 @@ const ler = (caminho) => readFileSync(new URL(caminho, raiz), "utf8");
 globalThis.document = { addEventListener() {} };
 vm.runInThisContext(
   `${ler("assets/app.js")}
-globalThis.__app = { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, linhaTabela, grupoLinhas, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo };`,
+globalThis.__app = { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, linhaTabela, gruposHtml, resumoGrupo, impressaoProdutos, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo };`,
   { filename: "app.js" }
 );
 
-const { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, linhaTabela, grupoLinhas, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo } = globalThis.__app;
+const { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, linhaTabela, gruposHtml, resumoGrupo, impressaoProdutos, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo } = globalThis.__app;
 S.cat = JSON.parse(ler("data/cst-cclasstrib.json"));
 S.regras = JSON.parse(ler("data/ncm-regras.json"));
 
@@ -86,7 +86,7 @@ checar(
   "o grupo assume a pior situação"
 );
 
-console.log("Código do produto na visão por código");
+console.log("Visão por código do produto");
 const itemGrupo = {
   origem: "nota.xml", nota: "10", item: "1", codProd: "2", ncm: "02013000",
   desc: "COSTELA BOVINA", emitente: "FORNECEDOR A",
@@ -96,11 +96,21 @@ const itemGrupo = {
   },
 };
 const grupo = { codigo: "2", emitente: "FORNECEDOR A", porNcm: false, status: "div", itens: [itemGrupo] };
-const htmlGrupo = grupoLinhas(grupo, new Map([[itemGrupo, 0]]), false);
-const itemHtml = htmlGrupo.slice(htmlGrupo.indexOf("</tr>") + 5);
-checar(htmlGrupo.includes("código do produto 2"), "o cabeçalho do grupo mostra o código");
-checar(!itemHtml.includes("cód. 2"), "os itens do grupo não repetem o código");
+const htmlGrupo = gruposHtml([grupo], false);
+checar((htmlGrupo.match(/<tr class="grupo-produto">/g) || []).length === 1, "cada código vira uma única linha");
+checar(!htmlGrupo.includes("data-i="), "a linha do código não traz os itens embaixo");
+checar(htmlGrupo.includes("código 2"), "a linha mostra o código");
+checar(htmlGrupo.includes("000/000001") && htmlGrupo.includes("200/200003"), "a linha mostra o declarado e o correto");
+checar(htmlGrupo.includes("Divergente"), "a linha mostra a situação do grupo");
 checar(linhaTabela(itemGrupo, 0).includes("cód. 2"), "a visão de todos os itens continua mostrando o código");
+const impresso = impressaoProdutos([itemGrupo]);
+checar((impresso.match(/<tr>/g) || []).length === 2, "a impressão tem só o cabeçalho e uma linha por código");
+checar(!impresso.includes("item 1"), "a impressão não lista os itens");
+const grupo2 = {
+  ...grupo,
+  itens: [itemGrupo, { ...itemGrupo, analise: { ...itemGrupo.analise, declCst: "200", declCc: "200003" } }],
+};
+checar(gruposHtml([grupo2], false).includes("2 tributações"), "declarações diferentes viram contagem");
 
 console.log("Busca");
 S.registros = [
