@@ -65,9 +65,9 @@ python -m http.server 8000
    do grupo. O mesmo código em fornecedores diferentes não se mistura, e o emitente aparece
    quando o lote tem mais de uma empresa. Se os itens do código tiverem declarações
    diferentes, a coluna mostra a quantidade (ex.: *2 tributações*). Arquivos sem a coluna de
-   código são agrupados pelo NCM. Na visão por código, a coluna `Correto` mostra o seletor
-   de CST/cClassTrib quando o grupo está em **revisão**, e a escolha vale para todos os itens
-   daquele código.
+   código são agrupados pelo NCM. Na visão por código, quando o grupo está em **revisão**, a
+   coluna `Correto` mostra a sugestão de CST/cClassTrib e o seletor com as opções; a escolha
+   vale para todos os itens daquele código.
 6. **Escolher a tributação** — na situação **Revisar**, a coluna `Correto` mostra um seletor
    com as opções (inclusive quando há uma única possibilidade); no detalhe do item, quando há
    mais de uma possibilidade (ou para desfazer uma escolha manual), há o botão **Usar esta

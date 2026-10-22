@@ -30,7 +30,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.22h";
+const VERSAO = "2026.10.22i";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -1049,10 +1049,15 @@ function linhaGrupo(g, mostrarEmitente) {
   const opcoes = g.status === "revisar" ? opcoesGrupo(g) : [];
   let correto;
   if (opcoes.length) {
-    const unica = opcoes.length === 1
-      ? `<span class="valor">${esc(opcoes[0].cst)}/${esc(opcoes[0].cc)}</span>`
-      : "";
-    correto = `<span class="rotulo">CST / cClassTrib</span>${unica}${selectGrupo(g, opcoes)}${
+    const escolhido = escolhaGrupo(g);
+    const atual = escolhido ? opcoes.find((o) => o.cc === escolhido) : null;
+    const sugestao = sugestaoGrupo(g, opcoes);
+    const destaque = atual || sugestao;
+    correto = `<span class="rotulo">CST / cClassTrib${
+      !atual && sugestao ? " · sugestão" : ""
+    }</span>${
+      destaque ? `<span class="valor">${esc(destaque.cst)}/${esc(destaque.cc)}</span>` : ""
+    }${selectGrupo(g, opcoes)}${
       opcoes.length > 1 ? `<span class="rotulo">${opcoes.length} opções</span>` : ""
     }`;
   } else {
@@ -1080,6 +1085,13 @@ function opcoesGrupo(g) {
   return base.filter((o) => comuns && comuns.has(o.cc));
 }
 
+/** Sugestão automática comum aos itens do grupo (ou a única opção disponível). */
+function sugestaoGrupo(g, opcoes) {
+  const ccs = g.itens.map((r) => (r.analise && r.analise.principalAuto ? r.analise.principalAuto.cc : ""));
+  const cc = ccs.length && ccs.every((x) => x && x === ccs[0]) ? ccs[0] : "";
+  return opcoes.find((o) => o.cc === cc) || (opcoes.length === 1 ? opcoes[0] : null);
+}
+
 /** Escolha manual uniforme do grupo, ou vazio quando os itens estão em estados diferentes. */
 function escolhaGrupo(g) {
   const ccs = g.itens.map((r) => (r.analise && r.analise.manual ? r.analise.principal.cc : ""));
@@ -1088,10 +1100,10 @@ function escolhaGrupo(g) {
 
 function selectGrupo(g, opcoes) {
   const atual = escolhaGrupo(g);
-  const auto = g.itens[0] && g.itens[0].analise ? g.itens[0].analise.principalAuto : null;
+  const sugestao = sugestaoGrupo(g, opcoes);
   const opts = opcoes
     .map((x) => {
-      const sug = auto && x.cc === auto.cc ? " · sugestão" : "";
+      const sug = sugestao && x.cc === sugestao.cc ? " · sugestão" : "";
       return `<option value="${esc(x.cc)}"${x.cc === atual ? " selected" : ""}>${esc(x.cc)} (CST ${esc(x.cst)}${sug})</option>`;
     })
     .join("");
@@ -1130,7 +1142,7 @@ function irParaTabela() {
   if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-/** Seletor do CST/cClassTrib nas situações divergente/revisar ou com mais de uma possibilidade. */
+/** Seletor do CST/cClassTrib na situação revisar. */
 function selectCorreto(a, indice) {
   const e = a.principal || a.esperados[0];
   const opts = a.esperados

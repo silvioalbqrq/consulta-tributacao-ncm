@@ -141,6 +141,28 @@ checar(
   htmlRevisar.includes("data-grupo=") && htmlRevisar.includes("515001"),
   "o grupo em revisar mostra o seletor com as três opções"
 );
+checar(
+  htmlRevisar.includes("200/200003") && htmlRevisar.includes("CST / cClassTrib · sugestão"),
+  "o grupo em revisar mostra a sugestão de CST/cClassTrib"
+);
+const grupoMisto = {
+  ...grupoRevisar,
+  chave: "fornecedor a|c:4",
+  codigo: "4",
+  itens: [
+    grupoRevisar.itens[0],
+    {
+      ...itemGrupo,
+      codProd: "4",
+      ncm: "02102000",
+      analise: analisarItem(item({ ncm: "02102000", cst: "200", cc: "200038" })),
+    },
+  ],
+};
+checar(
+  !gruposHtml([grupoMisto], false).includes("· sugestão"),
+  "grupo com sugestões diferentes não mostra uma sugestão única"
+);
 S.escolhas.clear();
 const itemDoGrupo = {
   origem: "nota.xml", nota: "10", item: "1", codProd: "9", ncm: "02102000",
