@@ -10,11 +10,11 @@ const ler = (caminho) => readFileSync(new URL(caminho, raiz), "utf8");
 globalThis.document = { addEventListener() {} };
 vm.runInThisContext(
   `${ler("assets/app.js")}
-globalThis.__app = { S, analisarBase, agruparPorCodigo, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo };`,
+globalThis.__app = { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo };`,
   { filename: "app.js" }
 );
 
-const { S, analisarBase, agruparPorCodigo, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo } = globalThis.__app;
+const { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo } = globalThis.__app;
 S.cat = JSON.parse(ler("data/cst-cclasstrib.json"));
 S.regras = JSON.parse(ler("data/ncm-regras.json"));
 
@@ -33,6 +33,42 @@ checar(analisar("19030000", "000", "200003").status === "div", "CST 000 não ser
 checar(analisar("19030000", "200", "000001").status === "div", "cClassTrib 000001 não serve para 19030000");
 checar(analisar("99999999", "000", "000001").status === "sem-regra", "NCM sem anexo + 000001 é integral confirmada");
 checar(analisar("", "", "").status === "invalido", "NCM ausente é inválido");
+
+console.log("NCM de planilha numérica");
+checar(ncmDeCelula(1903) === "1903", "NCM de 4 dígitos numérico não ganha zeros à esquerda");
+checar(ncmDeCelula(190300) === "190300", "NCM de 6 dígitos numérico também fica como está");
+checar(ncmDeCelula(2013000) === "02013000", "NCM de 8 dígitos sem o zero à esquerda é completado");
+checar(ncmDeCelula(19030000) === "19030000", "NCM de 8 dígitos numérico fica igual");
+checar(ncmDeCelula("01903000") === "01903000", "NCM em texto continua igual");
+checar(
+  analisar(ncmDeCelula(1903), "200", "200003").status === "ok",
+  "NCM 1903 numérico acha a regra da posição"
+);
+
+console.log("Escolhas manuais");
+S.escolhas.clear();
+const itemManual = {
+  origem: "nota.xml", nota: "10", item: "1", ncm: "02102000",
+  cst: "000", cc: "000001", semGrupo: false, valores: {},
+};
+const auto = analisarItem(itemManual);
+checar(auto.status === "revisar" && auto.esperados.length === 3, "item com 3 possibilidades começa em revisar");
+itemManual.escolha = "200003";
+lembrarEscolha(itemManual);
+const relido = { ...itemManual };
+delete relido.escolha;
+reaplicarEscolhas([relido]);
+checar(relido.escolha === "200003", "escolha manual volta ao item relido");
+const aplicada = analisarItem(relido);
+checar(aplicada.manual === true && aplicada.principal.cc === "200003", "escolha restaurada é aplicada à análise");
+checar(aplicada.status === "div", "escolha 200003 com 000/000001 continua divergente");
+const outroNcm = { ...itemManual, ncm: "19030000" };
+delete outroNcm.escolha;
+reaplicarEscolhas([outroNcm]);
+checar(outroNcm.escolha === undefined, "a escolha não vaza para outro NCM");
+delete relido.escolha;
+lembrarEscolha(relido);
+checar(!S.escolhas.has(chaveEscolha(relido)), "voltar à sugestão apaga a escolha guardada");
 
 console.log("Agrupamento por código do produto");
 const registros = [

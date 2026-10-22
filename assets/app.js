@@ -14,6 +14,7 @@ const S = {
   desc: null,         // descricoes NCM (carregado em segundo plano)
   arquivos: [],
   registros: [],
+  escolhas: new Map(),
   errosLeitura: [],
   falhasAnalise: [],
   filtro: "todos",
@@ -29,7 +30,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.22c";
+const VERSAO = "2026.10.22d";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -96,6 +97,13 @@ const codigoPad = (v, tamanho) => {
   if (!/^\d+$/.test(s)) return s.toUpperCase();
   if (s.length < tamanho) s = s.padStart(tamanho, "0");
   return s;
+};
+
+/** NCM de célula numérica: só repõe o zero perdido de um NCM de 8 dígitos (7 dígitos no número). */
+const ncmDeCelula = (v) => {
+  if (typeof v !== "number") return digitos(v);
+  const s = String(Math.trunc(v));
+  return s.length === 7 ? "0" + s : s;
 };
 
 /* ------------------------------------------------------------------ */
@@ -584,7 +592,7 @@ async function lerPlanilha(file) {
       const ncmBruto = linha[m.ncm];
       const desc = m.desc !== undefined ? linha[m.desc] : "";
       if ((ncmBruto === null || ncmBruto === undefined || ncmBruto === "") && !desc) continue;
-      const ncmTxt = typeof ncmBruto === "number" ? String(Math.trunc(ncmBruto)).padStart(8, "0") : digitos(ncmBruto);
+      const ncmTxt = ncmDeCelula(ncmBruto);
       if (!ncmTxt) continue;
 
       const valores = {};
@@ -657,6 +665,8 @@ async function processarArquivos() {
         erros.push(`${f.name}: ${e.message}`);
       }
     }
+
+    reaplicarEscolhas(registros);
 
     for (const reg of registros) {
       try {
@@ -1109,6 +1119,24 @@ function linhaTabela(r, indice) {
 /* detalhe                                                            */
 /* ------------------------------------------------------------------ */
 
+/** Chave do item entre uma conferência e outra (mesmo arquivo, chave/nota, item e NCM). */
+const chaveEscolha = (r) => [r.origem, r.chave || "", r.nota || "", r.item || "", digitos(r.ncm)].join("|");
+
+/** Guarda (ou apaga) a escolha manual para reaplicar quando a lista for conferida de novo. */
+function lembrarEscolha(r) {
+  const k = chaveEscolha(r);
+  if (r.escolha) S.escolhas.set(k, r.escolha);
+  else S.escolhas.delete(k);
+}
+
+/** Devolve as escolhas manuais aos itens recém-lidos do mesmo arquivo/nota/item. */
+function reaplicarEscolhas(registros) {
+  for (const r of registros) {
+    const salva = S.escolhas.get(chaveEscolha(r));
+    if (salva) r.escolha = salva;
+  }
+}
+
 /** Define a tributação do item (escolha manual) ou volta à sugestão automática. */
 function definirEscolha(indice, cc) {
   const r = S.registros[indice];
@@ -1117,6 +1145,7 @@ function definirEscolha(indice, cc) {
   const cod = codigoPad(cc, 6);
   if (!cod || (auto && cod === auto.cc)) delete r.escolha;
   else r.escolha = cod;
+  lembrarEscolha(r);
   r.analise = analisarItem(r);
   renderizar();
   resumoStatus();
@@ -1962,6 +1991,7 @@ function iniciar() {
   $("btnLimpar").addEventListener("click", () => {
     S.arquivos = [];
     S.registros = [];
+    S.escolhas.clear();
     S.errosLeitura = [];
     S.falhasAnalise = [];
     S.filtro = "todos";

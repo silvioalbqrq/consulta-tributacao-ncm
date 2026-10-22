@@ -122,7 +122,8 @@ correta de cada código.
    se não for, fica em **revisar**, pois a escolha depende da condição de uso
    (cesta básica, insumo agropecuário, dispositivo médico, etc.). Nesse caso o seletor da
    coluna `Correto` (ou os botões do detalhe) permite fixar a tributação do item; itens com
-   escolha manual passam a contar como corrigidos e recebem a marca **ajustado**.
+   escolha manual passam a contar como corrigidos e recebem a marca **ajustado**. A escolha
+   é mantida quando a lista é conferida de novo (mesmo arquivo, nota e item).
 4. **cClassTrib vedado para o NCM** → divergência, com a indicação da restrição.
 5. **CST incompatível com o cClassTrib** → divergência, mesmo que o cClassTrib exista.
 6. **Valores** → quando o arquivo traz `vBC`, alíquotas e valores de IBS/CBS, o site aplica
