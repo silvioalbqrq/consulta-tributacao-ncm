@@ -30,7 +30,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.22g";
+const VERSAO = "2026.10.22h";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -1046,7 +1046,7 @@ function linhaGrupo(g, mostrarEmitente) {
       lista.join(" · ")
     )}">${texto}</span>`;
   };
-  const opcoes = g.status === "div" || g.status === "revisar" ? opcoesGrupo(g) : [];
+  const opcoes = g.status === "revisar" ? opcoesGrupo(g) : [];
   let correto;
   if (opcoes.length) {
     const unica = opcoes.length === 1
@@ -1155,8 +1155,7 @@ function linhaTabela(r, indice) {
   let correto = "";
   if (a.esperados && a.esperados.length) {
     const e = a.principal || a.esperados[0];
-    const escolher = a.esperados.length > 1 || a.status === "div" || a.status === "revisar";
-    if (escolher) {
+    if (a.status === "revisar") {
       const par = a.esperados.length === 1
         ? `<span class="valor">${esc(e.cst)} <span class="cc">${esc(e.cc)}</span></span>`
         : "";
@@ -1168,7 +1167,9 @@ function linhaTabela(r, indice) {
             : ""
       }`;
     } else {
-      correto = `<span class="rotulo">CST / cClassTrib</span><span class="valor">${esc(e.cst)} <span class="cc">${esc(e.cc)}</span></span>`;
+      correto = `<span class="rotulo">CST / cClassTrib</span><span class="valor">${esc(e.cst)} <span class="cc">${esc(e.cc)}</span></span>${
+        a.esperados.length > 1 ? `<span class="rotulo">${a.esperados.length} opções</span>` : ""
+      }`;
     }
   } else if (a.status === "invalido") {
     correto = '<span class="rotulo">—</span>';
@@ -1266,7 +1267,7 @@ function abrirDetalhe(indice) {
   const opcoes = a.esperados || [];
   const escolhidoCc = a.principal ? a.principal.cc : "";
   const autoCc = a.principalAuto ? a.principalAuto.cc : "";
-  const podeEscolher = opcoes.length > 1 || a.status === "div" || a.status === "revisar";
+  const podeEscolher = opcoes.length > 1 || !!a.manual;
 
   const candidatoCard = (c, vedado) => `
     <div class="candidato${vedado ? " vedado" : ""}${podeEscolher && !vedado && c.cc === escolhidoCc ? " escolhido" : ""}">

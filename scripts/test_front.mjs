@@ -110,15 +110,25 @@ checar(htmlGrupo.includes("código 2"), "a linha mostra o código");
 checar(htmlGrupo.includes("000/000001") && htmlGrupo.includes("200/200003"), "a linha mostra o declarado e o correto");
 checar(htmlGrupo.includes("Divergente"), "a linha mostra a situação do grupo");
 checar(
-  htmlGrupo.includes("data-grupo=") && htmlGrupo.includes("— escolher —"),
-  "o grupo divergente mostra o seletor de CST/cClassTrib"
+  !htmlGrupo.includes("data-grupo="),
+  "o grupo divergente não mostra o seletor de CST/cClassTrib"
 );
 checar(linhaTabela(itemGrupo, 0).includes("cód. 2"), "a visão de todos os itens continua mostrando o código");
 checar(
-  linhaTabela(itemGrupo, 0).includes("data-escolha="),
-  "o item divergente com uma opção mostra o seletor"
+  !linhaTabela(itemGrupo, 0).includes("data-escolha="),
+  "o item divergente não mostra o seletor"
 );
 const analiseRevisar = analisarItem(item({ ncm: "02102000", cst: "000", cc: "000001" }));
+checar(
+  linhaTabela({ ...itemGrupo, ncm: "02102000", analise: analiseRevisar }, 0).includes("data-escolha="),
+  "o item em revisar mostra o seletor"
+);
+const analiseOkMulti = analisarItem(item({ ncm: "02102000", cst: "200", cc: "200003" }));
+checar(
+  analiseOkMulti.status === "ok" && analiseOkMulti.esperados.length === 3 &&
+    !linhaTabela({ ...itemGrupo, ncm: "02102000", analise: analiseOkMulti }, 0).includes("data-escolha="),
+  "item conforme com várias opções não mostra o seletor"
+);
 const grupoRevisar = {
   ...grupo,
   chave: "fornecedor a|c:3",
