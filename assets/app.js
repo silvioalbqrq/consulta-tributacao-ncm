@@ -12,7 +12,6 @@ const S = {
   cat: null,          // { meta, csts, classificacoes }
   regras: null,       // { meta, variantes, ncm }
   desc: null,         // descricoes NCM (carregado em segundo plano)
-  descPronto: false,
   arquivos: [],
   registros: [],
   errosLeitura: [],
@@ -29,7 +28,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.21n";
+const VERSAO = "2026.10.22a";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -142,7 +141,6 @@ async function carregarDescricoes() {
   } catch (e) {
     S.desc = null;
   }
-  S.descPronto = true;
   if (S.registros.length) renderizar();
   if ($("ncmManual").value.trim()) consultarManual();
 }
@@ -438,7 +436,6 @@ async function lerXml(file) {
     const nota = ide ? val(ide, "nNF") : "";
     const serie = ide ? val(ide, "serie") : "";
     const data = ide ? val(ide, "dhEmi") || val(ide, "dEmi") : "";
-    const modelo = ide ? val(ide, "mod") : "";
     const emitente = emit ? val(emit, "xNome") : "";
 
     for (const det of nos(inf, "det")) {
@@ -480,11 +477,9 @@ async function lerXml(file) {
 
       registros.push({
         origem: file.name,
-        tipo: "xml",
         aba: "",
         nota,
         serie,
-        modelo,
         emitente,
         chave,
         data,
@@ -492,7 +487,6 @@ async function lerXml(file) {
         ncm,
         codProd: prod ? val(prod, "cProd") : "",
         desc: prod ? val(prod, "xProd") : "",
-        cfop: prod ? val(prod, "CFOP") : "",
         cstIcms,
         cst,
         cc,
@@ -601,11 +595,9 @@ async function lerPlanilha(file) {
 
       registros.push({
         origem: file.name,
-        tipo: "planilha",
         aba: nomeAba,
         nota: m.nota !== undefined ? String(linha[m.nota] ?? "").replace(/\.0$/, "") : "",
         serie: m.serie !== undefined ? String(linha[m.serie] ?? "") : "",
-        modelo: "",
         emitente: "",
         chave: m.chave !== undefined ? digitos(linha[m.chave]) : "",
         data: m.data !== undefined ? linha[m.data] : "",
@@ -613,10 +605,7 @@ async function lerPlanilha(file) {
         ncm: ncmTxt,
         codProd: m.codProd !== undefined ? String(linha[m.codProd] ?? "").replace(/\.0$/, "").trim() : "",
         desc: String(desc ?? "").trim(),
-        cfop: m.cfop !== undefined ? String(linha[m.cfop] ?? "") : "",
         cstIcms: m.cstIcms !== undefined ? codigoPad(linha[m.cstIcms], 2) : "",
-        cstPis: m.cstPis !== undefined ? codigoPad(linha[m.cstPis], 2) : "",
-        cstCofins: m.cstCofins !== undefined ? codigoPad(linha[m.cstCofins], 2) : "",
         cst: m.cst !== undefined ? codigoPad(linha[m.cst], 3) : "",
         cc: m.cc !== undefined ? codigoPad(linha[m.cc], 6) : "",
         valor: m.valor !== undefined ? linha[m.valor] : "",
@@ -667,7 +656,22 @@ async function processarArquivos() {
       }
     }
 
-    for (const reg of registros) reg.analise = analisarItem(reg);
+    for (const reg of registros) {
+      try {
+        reg.analise = analisarItem(reg);
+      } catch (e) {
+        erros.push(`${reg.origem}${reg.item ? " · item " + reg.item : ""}: ${e.message}`);
+        reg.analise = {
+          status: "revisar",
+          declCst: codigoPad(reg.cst, 3),
+          declCc: codigoPad(reg.cc, 6),
+          esperados: [],
+          alertas: [],
+          nota: "Falha ao analisar este item.",
+          regra: { permitidos: [], vedados: [] },
+        };
+      }
+    }
     S.registros = registros;
     S.errosLeitura = erros;
     S.filtro = "todos";
@@ -683,6 +687,8 @@ async function processarArquivos() {
     resumoStatus();
     renderizar();
     document.getElementById("resultados").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) {
+    mostrarStatus("Falha ao conferir os arquivos: " + e.message, "erro");
   } finally {
     S.processando = false;
     $("btnProcessar").disabled = !S.arquivos.length;
@@ -742,12 +748,14 @@ function registroFiltrado(r) {
   if (S.filtro === "alerta" && !(a.alertas && a.alertas.length)) return false;
   if (S.filtro === "ajustados" && !a.manual) return false;
 
-  if (!S.busca) return true;
+  const q = norm(S.busca);
+  if (!q) return true;
   const alvo = norm(
     [
       r.ncm,
       r.codProd,
       r.desc,
+      r.emitente,
       r.nota,
       r.origem,
       a.declCc,
@@ -755,7 +763,7 @@ function registroFiltrado(r) {
       a.esperados && a.esperados.map((e) => e.cc).join(" "),
     ].join(" ")
   );
-  return alvo.includes(S.busca);
+  return alvo.includes(q);
 }
 
 function renderizar() {
@@ -768,6 +776,9 @@ function renderizar() {
   const filtrados = S.registros.filter(registroFiltrado);
   const indiceGlobal = new Map(S.registros.map((r, i) => [r, i]));
   const grupos = S.visao === "produto" ? agruparPorCodigo(filtrados) : null;
+  const mostrarEmitente = grupos
+    ? new Set(S.registros.map((r) => r.emitente).filter(Boolean)).size > 1
+    : false;
   const linhas = grupos || filtrados;
   const totalPaginas = Math.max(1, Math.ceil(linhas.length / S.tamanhoPagina));
   S.pagina = Math.min(Math.max(1, S.pagina), totalPaginas);
@@ -829,7 +840,7 @@ function renderizar() {
     </div>
     ${
       grupos
-        ? `<div class="tabela-wrap">${gruposHtml(visiveis, indiceGlobal)}</div>`
+        ? `<div class="tabela-wrap">${gruposHtml(visiveis, indiceGlobal, mostrarEmitente)}</div>`
         : `<div class="tabela-wrap">${tabelaHtml(visiveis, indiceGlobal)}</div>`
     }
     <div class="barra-pag">
@@ -977,13 +988,13 @@ function tabelaHtml(lista, indiceGlobal) {
 }
 
 /** Corpo da visão "Por código do produto": a mesma tabela, com uma linha por produto. */
-function gruposHtml(lista, indiceGlobal) {
+function gruposHtml(lista, indiceGlobal, mostrarEmitente) {
   if (!lista.length) return '<p class="vazio">Nenhum item para este filtro.</p>';
-  return tabelaResultado(lista.map((g) => grupoLinhas(g, indiceGlobal)).join(""));
+  return tabelaResultado(lista.map((g) => grupoLinhas(g, indiceGlobal, mostrarEmitente)).join(""));
 }
 
 /** Linha do produto (separador do grupo) + os itens na tabela de "Todos os itens". */
-function grupoLinhas(g, indiceGlobal) {
+function grupoLinhas(g, indiceGlobal, mostrarEmitente) {
   const ncms = new Set(g.itens.map((r) => r.ncm).filter(Boolean));
   const declarados = new Set(
     g.itens.map((r) => {
@@ -992,10 +1003,14 @@ function grupoLinhas(g, indiceGlobal) {
     })
   ).size;
   const s = SELOS[g.status] || SELOS.revisar;
-  const ncmTxt = ncms.size === 1 ? `NCM ${[...ncms][0]}` : ncms.size > 1 ? `${ncms.size} NCMs` : "";
+  let ncmTxt = "";
+  if (ncms.size === 1) ncmTxt = `NCM ${[...ncms][0]}`;
+  else if (ncms.size > 1) ncmTxt = `${ncms.size} NCMs`;
+  const emit = mostrarEmitente && g.emitente ? `<span class="g-emit">${esc(g.emitente)}</span>` : "";
   return `<tr class="grupo-produto"><td colspan="5">
       <span class="g-cod">${g.porNcm ? "NCM" : "código do produto"} ${esc(g.codigo)}</span>
       ${g.porNcm || !ncmTxt ? "" : `<span class="g-ncmh">${esc(ncmTxt)}</span>`}
+      ${emit}
       <span class="g-desch">${esc(descricaoItem(g.itens[0]))}</span>
       <span class="selo ${s.classe}">${s.texto}</span>
       <span class="g-qtd${declarados > 1 ? " alerta" : ""}">${g.itens.length} ${
@@ -1011,12 +1026,13 @@ function agruparPorCodigo(lista) {
   const peso = (status) => ordem[status] ?? 9;
   const mapa = new Map();
   for (const r of lista) {
+    const emitente = (r.emitente || "").trim();
     const codProd = (r.codProd || "").trim();
     const codigo = codProd || r.ncm || "—";
-    const chave = (codProd ? "c:" : "n:") + codigo;
+    const chave = `${norm(emitente)}|${codProd ? "c:" : "n:"}${codigo}`;
     let g = mapa.get(chave);
     if (!g) {
-      g = { codigo, porNcm: !codProd, status: "ok", itens: [] };
+      g = { codigo, emitente, porNcm: !codProd, status: "ok", itens: [] };
       mapa.set(chave, g);
     }
     g.itens.push(r);
@@ -1103,6 +1119,14 @@ function definirEscolha(indice, cc) {
   if ($("dlg").open) abrirDetalhe(indice);
 }
 
+/** Título da caixa "Correto" no detalhe do item. */
+function tituloCorreto(a, opcoes) {
+  if (a.manual) return `Escolhido entre ${opcoes.length} possibilidades`;
+  if (a.status === "ok") return "Confirmado no item";
+  if (opcoes.length > 1) return `Sugestão (1 de ${opcoes.length})`;
+  return "Esperado para o NCM";
+}
+
 function abrirDetalhe(indice) {
   const r = S.registros[indice];
   if (!r) return;
@@ -1157,13 +1181,7 @@ function abrirDetalhe(indice) {
   let correto;
   if (opcoes.length) {
     const e = a.principal || opcoes[0];
-    const titulo = a.manual
-      ? `Escolhido entre ${opcoes.length} possibilidades`
-      : a.status === "ok"
-      ? "Confirmado no item"
-      : opcoes.length > 1
-      ? `Sugestão (1 de ${opcoes.length})`
-      : "Esperado para o NCM";
+    const titulo = tituloCorreto(a, opcoes);
     correto = `<div class="caixa ok">
         <span class="titulo">${titulo}</span>
         <div class="linha">CST ${esc(e.cst)} · cClassTrib ${esc(e.cc)}</div>
@@ -1179,41 +1197,51 @@ function abrirDetalhe(indice) {
     ? `<h3>Alertas de valor</h3><ul class="aviso-lista">${a.alertas.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`
     : "";
 
+  let possibilidades;
+  if (regra.multiplosNcm && regra.multiplosNcm.length) {
+    possibilidades = `<div class="candidatos"><div class="candidato">
+      <p>O NCM informado está incompleto. Existem ${regra.multiplosNcm.length} NCMs na base começando com ${esc(regra.cod)}; informe os 8 dígitos para consultar a regra correta.</p>
+    </div></div>`;
+  } else if (regra.permitidos.length) {
+    possibilidades = `<div class="candidatos">${regra.permitidos.map((c) => candidatoCard(c, false)).join("")}</div>`;
+  } else {
+    possibilidades = `<div class="candidatos"><div class="candidato">
+      <div class="topo-linha"><span class="cod">000001</span><span class="cst">CST 000</span><span class="selo ok">PADRÃO</span></div>
+      <p>O NCM não consta em nenhum anexo com tratamento específico. Aplica-se a tributação integral do IBS e da CBS.</p>
+      <div class="tags"><span>Redução IBS 0%</span><span>Redução CBS 0%</span></div>
+    </div></div>`;
+  }
+
+  // Os links oficiais vêm do rodapé, para não ficarem duplicados aqui.
+  const href = (id) => {
+    const el = $(id);
+    return el ? el.href : "";
+  };
+  const fontes = { portal: href("linkPortal"), espelho: href("linkEspelho") };
+
   $("dlgTitulo").textContent = `NCM ${r.ncm || "—"} · ${r.nota ? "NF " + r.nota : r.origem}`;
   $("dlgCorpo").innerHTML = `
     <div class="dlg-produto">
-      <div class="topo-linha" style="display:flex;gap:10px;align-items:center;justify-content:space-between">
+      <div class="topo-linha">
         <span class="ncm">${esc(r.ncm || "—")}</span>
         <span class="selo ${s.classe}">${s.texto}</span>
       </div>
       <p>${esc(r.desc || desc) || "Sem descrição do produto."}</p>
-      ${desc && r.desc ? `<p style="font-size:12px">NCM: ${esc(desc)}</p>` : ""}
-      <p style="font-size:12px">${esc(r.origem)}${r.aba ? " · aba " + esc(r.aba) : ""}${
+      ${desc && r.desc ? `<p class="miudo">NCM: ${esc(desc)}</p>` : ""}
+      <p class="miudo">${esc(r.origem)}${r.aba ? " · aba " + esc(r.aba) : ""}${
         r.nota ? " · NF " + esc(r.nota) + (r.serie ? "/" + esc(r.serie) : "") : ""
       }${r.item ? " · item " + esc(r.item) : ""}${r.chave ? " · chave " + esc(r.chave) : ""}</p>
     </div>
 
     <h3>Comparação</h3>
     <div class="duelo">${declarado}${correto}</div>
-    <p style="font-size:13px;margin:10px 0 0">${esc(a.nota || "")}</p>
+    <p class="nota-dlg">${esc(a.nota || "")}</p>
     ${alertas}
 
     <h3>${regra.permitidos.length ? "Possibilidades permitidas para o NCM" : "Regra aplicada"}${
       podeEscolher ? " — escolha a que se aplica a este item" : ""
     }</h3>
-    ${
-      regra.multiplosNcm && regra.multiplosNcm.length
-        ? `<div class="candidatos"><div class="candidato">
-            <p>O NCM informado está incompleto. Existem ${regra.multiplosNcm.length} NCMs na base começando com ${esc(regra.cod)}; informe os 8 dígitos para consultar a regra correta.</p>
-          </div></div>`
-        : regra.permitidos.length
-        ? `<div class="candidatos">${regra.permitidos.map((c) => candidatoCard(c, false)).join("")}</div>`
-        : `<div class="candidatos"><div class="candidato">
-            <div class="topo-linha"><span class="cod">000001</span><span class="cst">CST 000</span><span class="selo ok">PADRÃO</span></div>
-            <p>O NCM não consta em nenhum anexo com tratamento específico. Aplica-se a tributação integral do IBS e da CBS.</p>
-            <div class="tags"><span>Redução IBS 0%</span><span>Redução CBS 0%</span></div>
-          </div></div>`
-    }
+    ${possibilidades}
 
     ${
       regra.vedados && regra.vedados.length
@@ -1224,9 +1252,9 @@ function abrirDetalhe(indice) {
     }
 
     <h3>Referências</h3>
-    <p style="font-size:12.5px">
-      <a href="https://dfe-portal.svrs.rs.gov.br/CFF/ClassificacaoTributaria" target="_blank" rel="noopener">Portal da Conformidade Fácil (SEFAZ-RS)</a>
-      · <a href="https://silvioalbqrq.github.io/cst-cclasstrib/" target="_blank" rel="noopener">Consulta CST × cClassTrib</a>
+    <p class="refs">
+      <a href="${esc(fontes.portal)}" target="_blank" rel="noopener">Portal da Conformidade Fácil (SEFAZ-RS)</a>
+      · <a href="${esc(fontes.espelho)}" target="_blank" rel="noopener">Consulta CST × cClassTrib</a>
     </p>
   `;
   $("dlgCorpo").querySelectorAll("[data-usar]").forEach((b) =>
@@ -1251,7 +1279,7 @@ function consultarManual() {
   const cod = digitos(bruto);
   const alvo = $("manualResultado");
   if (!cod) {
-    alvo.innerHTML = `<p class="vazio" style="padding:14px 0">Informe um NCM para consultar.</p>`;
+    alvo.innerHTML = `<p class="vazio vazio-pad">Informe um NCM para consultar.</p>`;
     return;
   }
 
@@ -1259,14 +1287,14 @@ function consultarManual() {
   const desc = descNcm(regra.chave || cod);
 
   if (regra.multiplosNcm && regra.multiplosNcm.length) {
-    alvo.innerHTML = `<p class="ajuda" style="margin:0 0 8px">${regra.multiplosNcm.length} NCMs começam com <b>${esc(cod)}</b>. Selecione:</p>
-      <ul class="lista-arquivos" style="max-height:240px;display:block">
+    alvo.innerHTML = `<p class="ajuda ajuda-topo">${regra.multiplosNcm.length} NCMs começam com <b>${esc(cod)}</b>. Selecione:</p>
+      <ul class="lista-arquivos lista-ncms">
         ${regra.multiplosNcm
           .slice(0, 200)
           .map((k) => {
             const rr = regrasDoNcm(k);
             const cc = rr.permitidos.map((p) => p.cc).join(", ") || "000001";
-            return `<li><span class="tipo">NCM</span><button type="button" class="btn" style="border:0;background:none;padding:0;font-weight:600" data-ncm="${k}">${k}</button><span class="nome">${esc(descNcm(k))}</span><span class="tipo">${cc}</span></li>`;
+            return `<li><span class="tipo">NCM</span><button type="button" class="btn btn-link" data-ncm="${k}">${k}</button><span class="nome">${esc(descNcm(k))}</span><span class="tipo">${cc}</span></li>`;
           })
           .join("")}
       </ul>`;
@@ -1293,10 +1321,10 @@ function consultarManual() {
     : `<div class="candidato"><span class="cod">000001</span> <span class="cst">CST 000</span><p>NCM sem tratamento específico: tributação integral.</p></div>`;
 
   alvo.innerHTML = `
-    <p class="ajuda" style="margin:0 0 8px"><b>NCM ${esc(regra.chave || cod)}</b> — ${esc(desc) || "descrição não disponível"}</p>
+    <p class="ajuda ajuda-topo"><b>NCM ${esc(regra.chave || cod)}</b> — ${esc(desc) || "descrição não disponível"}</p>
     <div class="candidatos">${cards}</div>
-    ${regra.vedados.length ? `<p class="ajuda" style="margin:10px 0 0">Vedado: ${regra.vedados.map((v) => esc(v.cc)).join(", ")}</p>` : ""}
-    ${regra.permitidos.length > 1 ? `<p class="ajuda" style="margin:8px 0 0">Há mais de uma possibilidade: a escolha depende da condição de uso do produto.</p>` : ""}
+    ${regra.vedados.length ? `<p class="ajuda ajuda-fim">Vedado: ${regra.vedados.map((v) => esc(v.cc)).join(", ")}</p>` : ""}
+    ${regra.permitidos.length > 1 ? `<p class="ajuda ajuda-fim">Há mais de uma possibilidade: a escolha depende da condição de uso do produto.</p>` : ""}
   `;
 }
 
@@ -1349,11 +1377,17 @@ function linhaExport(r) {
   ];
 }
 
+/** Célula do CSV pronta para o Excel: aspas dobradas e, em texto que o Excel abriria
+ *  como fórmula (=, +, -, @), um apóstrofo na frente (o Excel não o exibe). */
+function celulaCsv(c) {
+  let s = c == null ? "" : String(c);
+  if (typeof c === "string" && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
 function exportarCsv() {
   const dados = [cabecalho(), ...S.registros.map(linhaExport)];
-  const csv = dados
-    .map((linha) => linha.map((c) => `"${String(c == null ? "" : c).replace(/"/g, '""')}"`).join(";"))
-    .join("\r\n");
+  const csv = dados.map((linha) => linha.map(celulaCsv).join(";")).join("\r\n");
   baixar(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }), nomeBase() + ".csv");
 }
 
@@ -1378,7 +1412,9 @@ function exportarXlsx() {
     const a = r.analise || {};
     const opcoesArr = a.esperados || [];
     // Correção inequívoca: NCM com uma única opção, ou opção escolhida manualmente.
-    const e = a.manual ? a.principal : opcoesArr.length === 1 ? opcoesArr[0] : null;
+    let e = null;
+    if (a.manual) e = a.principal;
+    else if (opcoesArr.length === 1) e = opcoesArr[0];
     const corrigivel = e && a.status === "div";
     const opcoes = opcoesArr.map((x) => x.cc).join(", ");
     let observacao;
@@ -1566,28 +1602,37 @@ function comCaminho(f, caminho) {
   }
 }
 
+/** Erro marcado para o limite de tamanho, para não virar "arquivo corrompido". */
+function erroLimite(rotulo) {
+  const e = new Error(`o ${rotulo} passa de 300 MB depois de descompactado`);
+  e.limite = true;
+  return e;
+}
+
 async function descompactarZip(file) {
   const fflate = window.fflate;
   if (!fflate || typeof fflate.unzipSync !== "function") {
     throw new Error("o descompactador de ZIP não foi carregado; recarregue a página");
   }
+  // O limite é conferido no filter, com o tamanho descompactado declarado em cada
+  // entrada: conferir depois do unzipSync já teria inflado o pacote inteiro.
+  let total = 0;
   let entradas;
   try {
     const dados = new Uint8Array(await file.arrayBuffer());
-    entradas = fflate.unzipSync(dados, { filter: (e) => entradaUtil(e.name) });
-  } catch (_) {
+    entradas = fflate.unzipSync(dados, {
+      filter: (e) => {
+        if (!entradaUtil(e.name)) return false;
+        total += e.originalSize;
+        if (total > LIMITE_PACOTE_BYTES) throw erroLimite("ZIP");
+        return true;
+      },
+    });
+  } catch (e) {
+    if (e && e.limite) throw e;
     throw new Error("ZIP inválido, corrompido ou protegido por senha");
   }
-  const nomes = Object.keys(entradas);
-  const saida = [];
-  let total = 0;
-  for (const nome of nomes) {
-    const bytes = entradas[nome];
-    total += bytes.length;
-    if (total > LIMITE_PACOTE_BYTES) throw new Error("o ZIP passa de 300 MB depois de descompactado");
-    saida.push(arquivoDeBytes(bytes, nome, file.name));
-  }
-  return saida;
+  return Object.entries(entradas).map(([nome, bytes]) => arquivoDeBytes(bytes, nome, file.name));
 }
 
 let unrarPronto = null;
@@ -1641,15 +1686,19 @@ async function descompactarRar(file) {
   let concluido = false;
   try {
     const { files } = extrator.extract({
-      files: (h) => !h.flags.directory && entradaUtil(h.name),
+      files: (h) => {
+        if (h.flags.directory || !entradaUtil(h.name)) return false;
+        total += h.unpSize;
+        if (total > LIMITE_PACOTE_BYTES) throw erroLimite("RAR");
+        return true;
+      },
     });
     for (const item of files) {
-      total += item.extraction.length;
-      if (total > LIMITE_PACOTE_BYTES) throw new Error("o RAR passa de 300 MB depois de descompactado");
       saida.push(arquivoDeBytes(item.extraction, item.fileHeader.name, file.name));
     }
     concluido = true;
   } catch (e) {
+    if (e && e.limite) throw e;
     throw new Error(mensagemRar(e));
   } finally {
     if (!concluido && extrator && typeof extrator.closeArc === "function") {

@@ -4,9 +4,17 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   dados:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -19,3 +27,5 @@ jobs:
           node-version: "20"
       - name: Sintaxe do front-end
         run: node --check assets/app.js
+      - name: Regressão do front-end
+        run: node scripts/test_front.mjs

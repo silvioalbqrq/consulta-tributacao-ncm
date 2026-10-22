@@ -52,7 +52,8 @@ python -m http.server 8000
 2. **Conferir um NCM** — digite o código (4 a 8 dígitos) para consultar sem arquivo.
 3. **Filtrar** por divergentes, revisar, conformes, integral (sem regra), alertas de valor
    ou ajustados (itens com tributação escolhida manualmente). A busca aceita **código do
-   produto** (`cProd`), NCM, descrição, nota e nome do arquivo.
+   produto** (`cProd`), NCM, descrição, **emitente**, nota e nome do arquivo, sem
+   diferenciar maiúsculas nem acentos.
 4. **Percorrer o resultado** — a lista é paginada e os controles ficam **no fim da lista**:
    escolha **10, 25, 50 ou 100 itens por página** e navegue com **‹ Anterior**, **Próxima ›**
    e **Última página »** (vai direto para o fim da lista).
@@ -60,9 +61,11 @@ python -m http.server 8000
    Trocar o filtro, a busca, a visão ou o tamanho da página volta para a primeira página.
 5. **Alternar a visão** — **Todos os itens** mostra um item por linha; **Por código do
    produto** usa **a mesma tabela**, com as mesmas colunas, mas ordenada por `cProd`
-   (código do produto do XML, ou a coluna de código da planilha) e com uma **linha
-   separadora** por produto: código, NCM, descrição, situação e quantidade de itens. Se o
-   mesmo produto vier com CST/cClassTrib declarados diferentes em notas diferentes, a
+   (código do produto do XML, ou a coluna de código da planilha) **e pelo emitente** — o
+   mesmo código em fornecedores diferentes não se mistura, e a linha separadora mostra o
+   emitente quando o lote tem mais de uma empresa. Cada produto tem uma **linha
+   separadora**: código, NCM, descrição, situação e quantidade de itens. Se o mesmo
+   produto vier com CST/cClassTrib declarados diferentes em notas diferentes, a
    quantidade aparece em âmbar (*2 tributações declaradas*). Arquivos sem a coluna de
    código são agrupados pelo NCM.
 6. **Escolher a tributação** — quando o NCM tem mais de uma possibilidade permitida, a
@@ -144,7 +147,8 @@ consulta-tributacao-ncm-site/
 └── scripts/
     ├── gerar_dados.py             # gera data/*.json a partir do snapshot
     ├── atualizar_base.py          # extrai o snapshot do portal e regenera a base
-    └── test_dados.py              # regressão dos dados
+    ├── test_dados.py              # regressão dos dados
+    └── test_front.mjs             # regressão da lógica do front-end
 ```
 
 ## Atualizar a base
@@ -173,8 +177,9 @@ arquivos de `data/`.
 ## Testes
 
 ```bash
-python scripts/test_dados.py   # integridade da base e casos de referência
-node --check assets/app.js     # sintaxe do front-end
+python scripts/test_dados.py     # integridade da base e casos de referência
+node --check assets/app.js       # sintaxe do front-end
+node scripts/test_front.mjs      # regras, agrupamento, busca e CSV
 ```
 
 Casos de referência verificados:

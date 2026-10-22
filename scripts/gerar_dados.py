@@ -57,6 +57,9 @@ def main() -> int:
 
     with open(origem, encoding="utf-8") as fh:
         bruto = json.load(fh)
+    if not isinstance(bruto, list) or not bruto:
+        print("ERRO: snapshot em formato inesperado (esperava a lista de CSTs do portal).")
+        return 1
 
     csts = []
     classificacoes = {}
