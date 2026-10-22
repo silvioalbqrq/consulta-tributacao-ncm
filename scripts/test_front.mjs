@@ -10,11 +10,11 @@ const ler = (caminho) => readFileSync(new URL(caminho, raiz), "utf8");
 globalThis.document = { addEventListener() {} };
 vm.runInThisContext(
   `${ler("assets/app.js")}
-globalThis.__app = { S, analisarBase, agruparPorCodigo, registroFiltrado, celulaCsv };`,
+globalThis.__app = { S, analisarBase, agruparPorCodigo, registroFiltrado, celulaCsv, descompactarZip };`,
   { filename: "app.js" }
 );
 
-const { S, analisarBase, agruparPorCodigo, registroFiltrado, celulaCsv } = globalThis.__app;
+const { S, analisarBase, agruparPorCodigo, registroFiltrado, celulaCsv, descompactarZip } = globalThis.__app;
 S.cat = JSON.parse(ler("data/cst-cclasstrib.json"));
 S.regras = JSON.parse(ler("data/ncm-regras.json"));
 
@@ -68,6 +68,24 @@ console.log("CSV");
 checar(celulaCsv("=1+1") === `"'=1+1"`, "texto com = não vira fórmula no Excel");
 checar(celulaCsv(12.5) === `"12.5"`, "número continua número");
 checar(celulaCsv('diz "oi"') === `"diz ""oi"""`, "aspas continuam escapadas");
+
+console.log("Limite de pacote");
+// O fflate só avisa o tamanho descompactado dentro do filter; o teste simula a entrada grande.
+globalThis.window = {
+  fflate: {
+    unzipSync: (_dados, { filter }) => {
+      filter({ name: "nota.xml", originalSize: 301 * 1024 * 1024 });
+      return {};
+    },
+  },
+};
+const pacoteGrande = { name: "grande.zip", arrayBuffer: async () => new ArrayBuffer(0) };
+const erroLimite = await descompactarZip(pacoteGrande).then(
+  () => null,
+  (e) => e
+);
+checar(!!erroLimite && erroLimite.limite === true, "ZIP acima de 300 MB é barrado antes de descompactar");
+checar(!!erroLimite && /300 MB/.test(erroLimite.message), "a mensagem mostra o limite da constante");
 
 if (falhas) {
   console.log(`\n${falhas} falha(s).`);

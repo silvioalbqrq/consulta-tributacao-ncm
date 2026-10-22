@@ -15,6 +15,7 @@ const S = {
   arquivos: [],
   registros: [],
   errosLeitura: [],
+  falhasAnalise: [],
   filtro: "todos",
   busca: "",
   tamanhoPagina: 25,
@@ -28,7 +29,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.22a";
+const VERSAO = "2026.10.22b";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -640,6 +641,7 @@ async function processarArquivos() {
   S.processando = true;
   $("btnProcessar").disabled = true;
   const erros = [];
+  const falhasAnalise = [];
   const registros = [];
 
   try {
@@ -660,7 +662,7 @@ async function processarArquivos() {
       try {
         reg.analise = analisarItem(reg);
       } catch (e) {
-        erros.push(`${reg.origem}${reg.item ? " · item " + reg.item : ""}: ${e.message}`);
+        falhasAnalise.push(`${reg.origem}${reg.item ? " · item " + reg.item : ""}: ${e.message}`);
         reg.analise = {
           status: "revisar",
           declCst: codigoPad(reg.cst, 3),
@@ -668,12 +670,13 @@ async function processarArquivos() {
           esperados: [],
           alertas: [],
           nota: "Falha ao analisar este item.",
-          regra: { permitidos: [], vedados: [] },
+          regra: { permitidos: [], vedados: [], falhou: true },
         };
       }
     }
     S.registros = registros;
     S.errosLeitura = erros;
+    S.falhasAnalise = falhasAnalise;
     S.filtro = "todos";
     S.busca = "";
     S.pagina = 1;
@@ -736,7 +739,8 @@ function resumoStatus() {
   if (c.ajustados) msg += ` ${c.ajustados} com tributação escolhida manualmente.`;
   if (c.alertas) msg += ` ${c.alertas} item(ns) com alerta de valor.`;
   if (S.errosLeitura.length) msg += ` Falha ao ler ${S.errosLeitura.length} arquivo(s): ${S.errosLeitura.join(" | ")}`;
-  mostrarStatus(msg, S.errosLeitura.length || c.div ? "erro" : "ok");
+  if (S.falhasAnalise.length) msg += ` Falha ao analisar ${S.falhasAnalise.length} item(ns): ${S.falhasAnalise.join(" | ")}`;
+  mostrarStatus(msg, S.errosLeitura.length || S.falhasAnalise.length || c.div ? "erro" : "ok");
 }
 
 function registroFiltrado(r) {
@@ -1020,7 +1024,7 @@ function grupoLinhas(g, indiceGlobal, mostrarEmitente) {
 }
 
 
-/** Agrupa pelo código do produto (cProd); sem o código no arquivo, agrupa pelo NCM. */
+/** Agrupa por emitente + código do produto (cProd); sem o código, por emitente + NCM. */
 function agruparPorCodigo(lista) {
   const ordem = { div: 0, invalido: 1, revisar: 2, ok: 3, "sem-regra": 4 };
   const peso = (status) => ordem[status] ?? 9;
@@ -1197,8 +1201,14 @@ function abrirDetalhe(indice) {
     ? `<h3>Alertas de valor</h3><ul class="aviso-lista">${a.alertas.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`
     : "";
 
+  let tituloRegras = regra.permitidos.length ? "Possibilidades permitidas para o NCM" : "Regra aplicada";
   let possibilidades;
-  if (regra.multiplosNcm && regra.multiplosNcm.length) {
+  if (regra.falhou) {
+    tituloRegras = "Regra indisponível";
+    possibilidades = `<div class="candidatos"><div class="candidato">
+      <p>Não foi possível consultar a regra deste NCM. A observação acima traz o motivo; tente conferir o arquivo novamente.</p>
+    </div></div>`;
+  } else if (regra.multiplosNcm && regra.multiplosNcm.length) {
     possibilidades = `<div class="candidatos"><div class="candidato">
       <p>O NCM informado está incompleto. Existem ${regra.multiplosNcm.length} NCMs na base começando com ${esc(regra.cod)}; informe os 8 dígitos para consultar a regra correta.</p>
     </div></div>`;
@@ -1238,9 +1248,7 @@ function abrirDetalhe(indice) {
     <p class="nota-dlg">${esc(a.nota || "")}</p>
     ${alertas}
 
-    <h3>${regra.permitidos.length ? "Possibilidades permitidas para o NCM" : "Regra aplicada"}${
-      podeEscolher ? " — escolha a que se aplica a este item" : ""
-    }</h3>
+    <h3>${tituloRegras}${podeEscolher ? " — escolha a que se aplica a este item" : ""}</h3>
     ${possibilidades}
 
     ${
@@ -1356,7 +1364,7 @@ function nomeBase() {
 
 function cabecalho() {
   return [
-    "Origem", "Aba", "Nota", "Série", "Item", "Código do produto", "NCM", "Descrição do produto",
+    "Origem", "Emitente", "Aba", "Nota", "Série", "Item", "Código do produto", "NCM", "Descrição do produto",
     "Valor do item", "CST decl.", "cClassTrib decl.", "CST correto", "cClassTrib correto",
     "Situação", "Redução IBS", "Redução CBS", "Observação",
   ];
@@ -1366,7 +1374,7 @@ function linhaExport(r) {
   const a = r.analise || {};
   const e = a.principal || (a.esperados && a.esperados[0]);
   return [
-    r.origem, r.aba || "", r.nota || "", r.serie || "", r.item || "", r.codProd || "", r.ncm || "",
+    r.origem, r.emitente || "", r.aba || "", r.nota || "", r.serie || "", r.item || "", r.codProd || "", r.ncm || "",
     descricaoItem(r) || "",
     num(r.valor) ? num(r.valor) : "",
     a.declCst || "", a.declCc || "",
@@ -1395,7 +1403,7 @@ function exportarXlsx() {
   const todos = S.registros;
   const ws = XLSX.utils.aoa_to_sheet([cabecalho(), ...todos.map(linhaExport)]);
   ws["!cols"] = [
-    { wch: 28 }, { wch: 12 }, { wch: 9 }, { wch: 7 }, { wch: 6 }, { wch: 14 }, { wch: 11 }, { wch: 42 },
+    { wch: 28 }, { wch: 30 }, { wch: 12 }, { wch: 9 }, { wch: 7 }, { wch: 6 }, { wch: 14 }, { wch: 11 }, { wch: 42 },
     { wch: 12 }, { wch: 9 }, { wch: 12 }, { wch: 9 }, { wch: 12 }, { wch: 18 }, { wch: 11 }, { wch: 11 },
     { wch: 70 },
   ];
@@ -1406,7 +1414,7 @@ function exportarXlsx() {
 
   // Planilha para redigitação: só preenche quando a correção é inequívoca.
   const correcao = [
-    ["Origem", "Nota", "Item", "Código do produto", "NCM", "Descrição", "CST IBS/CBS", "cClassTrib", "Situação", "Observação"],
+    ["Origem", "Emitente", "Nota", "Item", "Código do produto", "NCM", "Descrição", "CST IBS/CBS", "cClassTrib", "Situação", "Observação"],
   ];
   for (const r of todos) {
     const a = r.analise || {};
@@ -1424,7 +1432,7 @@ function exportarXlsx() {
     else observacao = `Não corrigido automaticamente. ${a.nota || ""}${opcoes ? " Opções: " + opcoes + "." : ""}`.trim();
 
     correcao.push([
-      r.origem, r.nota || "", r.item || "", r.codProd || "", r.ncm || "", descricaoItem(r) || "",
+      r.origem, r.emitente || "", r.nota || "", r.item || "", r.codProd || "", r.ncm || "", descricaoItem(r) || "",
       corrigivel ? e.cst : a.declCst || "",
       corrigivel ? e.cc : a.declCc || "",
       (SELOS[a.status] || SELOS.revisar).texto,
@@ -1433,7 +1441,7 @@ function exportarXlsx() {
   }
   const ws2 = XLSX.utils.aoa_to_sheet(correcao);
   ws2["!cols"] = [
-    { wch: 28 }, { wch: 9 }, { wch: 6 }, { wch: 14 }, { wch: 11 }, { wch: 42 }, { wch: 12 }, { wch: 12 },
+    { wch: 28 }, { wch: 30 }, { wch: 9 }, { wch: 6 }, { wch: 14 }, { wch: 11 }, { wch: 42 }, { wch: 12 }, { wch: 12 },
     { wch: 18 }, { wch: 60 },
   ];
   XLSX.utils.book_append_sheet(wb, ws2, "Corrigida");
@@ -1497,6 +1505,8 @@ function impressaoItens(lista) {
 function impressaoProdutos(lista) {
   const grupos = agruparPorCodigo(lista);
   if (!grupos.length) return '<p class="meta">Nenhum item para este filtro.</p>';
+  // Mesma regra da tela: o emitente só aparece quando o lote tem mais de um.
+  const multi = new Set(lista.map((r) => r.emitente).filter(Boolean)).size > 1;
   return grupos
     .map((g) => {
       const s = SELOS[g.status] || SELOS.revisar;
@@ -1514,7 +1524,9 @@ function impressaoProdutos(lista) {
         })
         .join("");
       return `<section class="imp-grupo">
-        <h2>${g.porNcm ? "NCM" : "cód."} ${esc(g.codigo)} — ${esc(descricaoItem(g.itens[0]) || "—")} <span class="imp-selo">${
+        <h2>${g.porNcm ? "NCM" : "cód."} ${esc(g.codigo)} — ${esc(descricaoItem(g.itens[0]) || "—")}${
+        multi && g.emitente ? ` · ${esc(g.emitente)}` : ""
+      } <span class="imp-selo">${
         s.texto
       }</span><span class="imp-qtd">${g.itens.length} item(ns)</span></h2>
         <table class="imp-tabela">
@@ -1604,7 +1616,8 @@ function comCaminho(f, caminho) {
 
 /** Erro marcado para o limite de tamanho, para não virar "arquivo corrompido". */
 function erroLimite(rotulo) {
-  const e = new Error(`o ${rotulo} passa de 300 MB depois de descompactado`);
+  const mb = LIMITE_PACOTE_BYTES / (1024 * 1024);
+  const e = new Error(`o ${rotulo} passa de ${mb} MB depois de descompactado`);
   e.limite = true;
   return e;
 }
@@ -1886,6 +1899,7 @@ function iniciar() {
     S.arquivos = [];
     S.registros = [];
     S.errosLeitura = [];
+    S.falhasAnalise = [];
     S.filtro = "todos";
     S.busca = "";
     S.pagina = 1;
