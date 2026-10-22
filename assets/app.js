@@ -29,7 +29,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.22b";
+const VERSAO = "2026.10.22c";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -831,9 +831,9 @@ function renderizar() {
       <div class="filtros" role="group" aria-label="Filtrar resultados">${chips}</div>
       <div class="busca-resultado">
         <input id="buscaResultado" type="search" placeholder="Filtrar por NCM, código, produto, nota…" value="${esc(S.busca)}" aria-label="Filtrar resultados">
-        <button type="button" class="btn" id="btnCsv" title="Exporta todos os itens conferidos">CSV</button>
-        <button type="button" class="btn dourado" id="btnXlsx" title="Exporta todos os itens conferidos">Baixar planilha</button>
-        <button type="button" class="btn" id="btnImprimir" title="Imprimir a lista filtrada (todos os itens, não só esta página)">Imprimir</button>
+        <button type="button" class="btn" id="btnCsv" title="Exporta a visão escolhida: todos os itens ou por código do produto">CSV</button>
+        <button type="button" class="btn dourado" id="btnXlsx" title="Exporta a visão escolhida: todos os itens ou por código do produto">Baixar planilha</button>
+        <button type="button" class="btn" id="btnImprimir" title="Imprime a visão escolhida (lista filtrada, não só esta página)">Imprimir</button>
       </div>
     </div>
     <div class="barra-sec">
@@ -1394,12 +1394,68 @@ function celulaCsv(c) {
 }
 
 function exportarCsv() {
-  const dados = [cabecalho(), ...S.registros.map(linhaExport)];
+  const produto = S.visao === "produto";
+  const dados = produto ? [cabecalhoProduto(), ...gruposExport()] : [cabecalho(), ...S.registros.map(linhaExport)];
   const csv = dados.map((linha) => linha.map(celulaCsv).join(";")).join("\r\n");
-  baixar(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }), nomeBase() + ".csv");
+  baixar(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }), nomeArquivo("csv"));
+}
+
+/** Sufixo do nome do arquivo conforme a visão escolhida. */
+const sufixoVisao = () => (S.visao === "produto" ? "Por Código" : "Todos os Itens");
+
+const nomeArquivo = (ext) => `${nomeBase()} - ${sufixoVisao()}.${ext}`;
+
+/** Cabeçalho da exportação da visão "Por código do produto": uma linha por produto. */
+function cabecalhoProduto() {
+  return [
+    "Emitente", "Código do produto", "NCM", "Descrição do produto", "Itens", "Valor total",
+    "CST/cClassTrib declarados", "CST/cClassTrib corretos", "Situação",
+  ];
+}
+
+/** Uma linha por produto (emitente + código), sem repetir o código. */
+function linhaGrupoExport(g) {
+  const analiseDe = (r) => r.analise || {};
+  const parCorreto = (r) => {
+    const x = analiseDe(r);
+    const e = x.principal || (x.esperados && x.esperados[0]);
+    return e ? `${e.cst}/${e.cc}` : "—";
+  };
+  const distintos = (lista) => [...new Set(lista)].join(", ");
+  const total = g.itens.reduce((s, r) => s + num(r.valor), 0);
+  return [
+    g.emitente || "",
+    g.codigo,
+    distintos(g.itens.map((r) => r.ncm).filter(Boolean)),
+    descricaoItem(g.itens[0]) || "",
+    g.itens.length,
+    Math.round(total * 100) / 100,
+    distintos(g.itens.map((r) => `${analiseDe(r).declCst || "—"}/${analiseDe(r).declCc || "—"}`)),
+    distintos(g.itens.map(parCorreto)),
+    (SELOS[g.status] || SELOS.revisar).texto,
+  ];
+}
+
+function gruposExport() {
+  return agruparPorCodigo(S.registros).map(linhaGrupoExport);
 }
 
 function exportarXlsx() {
+  const wb = XLSX.utils.book_new();
+  if (S.visao === "produto") {
+    const dados = [cabecalhoProduto(), ...gruposExport()];
+    const ws = XLSX.utils.aoa_to_sheet(dados);
+    ws["!cols"] = [
+      { wch: 30 }, { wch: 14 }, { wch: 14 }, { wch: 42 }, { wch: 8 }, { wch: 12 }, { wch: 24 }, { wch: 24 }, { wch: 18 },
+    ];
+    ws["!autofilter"] = {
+      ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: dados.length - 1, c: dados[0].length - 1 } }),
+    };
+    XLSX.utils.book_append_sheet(wb, ws, "Por código");
+    XLSX.writeFile(wb, nomeArquivo("xlsx"));
+    return;
+  }
+
   const todos = S.registros;
   const ws = XLSX.utils.aoa_to_sheet([cabecalho(), ...todos.map(linhaExport)]);
   ws["!cols"] = [
@@ -1409,7 +1465,6 @@ function exportarXlsx() {
   ];
   ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: todos.length, c: cabecalho().length - 1 } }) };
 
-  const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Conferência");
 
   // Planilha para redigitação: só preenche quando a correção é inequívoca.
@@ -1446,7 +1501,7 @@ function exportarXlsx() {
   ];
   XLSX.utils.book_append_sheet(wb, ws2, "Corrigida");
 
-  XLSX.writeFile(wb, nomeBase() + ".xlsx");
+  XLSX.writeFile(wb, nomeArquivo("xlsx"));
 }
 
 function baixar(blob, nome) {
@@ -1474,10 +1529,15 @@ const ROTULO_FILTRO = {
   ajustados: "Ajustados",
 };
 
+let tituloOriginal = "";
+
 /** Preenche a área de impressão com TODOS os itens filtrados (não só a página atual). */
 function prepararImpressao() {
   const area = $("areaImpressao");
   if (!area || !S.registros.length) return;
+  // O navegador usa o título como nome do PDF; ele volta ao normal em limparImpressao.
+  if (!tituloOriginal) tituloOriginal = document.title;
+  document.title = `${nomeBase()} - ${sufixoVisao()}`;
   const filtrados = S.registros.filter(registroFiltrado);
   const meta = [
     `Base ${$("metaSnapshot") ? $("metaSnapshot").textContent : ""}`.trim(),
@@ -1492,6 +1552,10 @@ function prepararImpressao() {
 function limparImpressao() {
   const area = $("areaImpressao");
   if (area) area.innerHTML = "";
+  if (tituloOriginal) {
+    document.title = tituloOriginal;
+    tituloOriginal = "";
+  }
 }
 
 function impressaoItens(lista) {

@@ -75,9 +75,13 @@ python -m http.server 8000
 7. **Imprimir** — o botão **Imprimir** (ou `Ctrl+P`) monta um relatório com **todos os itens
    filtrados**, não só os da página atual, na visão escolhida (item a item ou por código do
    produto). A tela continua paginada; só a impressão sai completa.
-8. **Exportar** em CSV ou planilha Excel (duas abas: `Conferência` e `Corrigida`).
-   A exportação sempre inclui **todos os itens conferidos**, mesmo com um filtro aplicado na tela,
-   e traz a coluna **Emitente** ao lado da origem.
+8. **Exportar** em CSV ou planilha Excel. Na visão **todos os itens** saem duas abas
+   (`Conferência` e `Corrigida`), uma linha por item, com a coluna **Emitente** ao lado da
+   origem. Na visão **por código do produto** sai uma aba (`Por código`) com **uma linha por
+   código**, sem repetir o código, trazendo os itens, o valor total e a situação do grupo.
+   A exportação sempre inclui **todos os itens conferidos**, mesmo com um filtro aplicado na tela.
+   O arquivo baixado e o PDF da impressão terminam com **Todos os Itens** ou **Por Código**,
+   conforme a visão escolhida.
 
 ### Colunas reconhecidas na planilha
 
@@ -180,7 +184,7 @@ arquivos de `data/`.
 ```bash
 python scripts/test_dados.py     # integridade da base e casos de referência
 node --check assets/app.js       # sintaxe do front-end
-node scripts/test_front.mjs      # regras, agrupamento, busca, CSV e limite de pacote
+node scripts/test_front.mjs      # regras, agrupamento, busca, CSV, exportação e limite de pacote
 ```
 
 Casos de referência verificados:

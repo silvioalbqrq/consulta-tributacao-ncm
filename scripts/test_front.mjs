@@ -10,11 +10,11 @@ const ler = (caminho) => readFileSync(new URL(caminho, raiz), "utf8");
 globalThis.document = { addEventListener() {} };
 vm.runInThisContext(
   `${ler("assets/app.js")}
-globalThis.__app = { S, analisarBase, agruparPorCodigo, registroFiltrado, celulaCsv, descompactarZip };`,
+globalThis.__app = { S, analisarBase, agruparPorCodigo, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo };`,
   { filename: "app.js" }
 );
 
-const { S, analisarBase, agruparPorCodigo, registroFiltrado, celulaCsv, descompactarZip } = globalThis.__app;
+const { S, analisarBase, agruparPorCodigo, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo } = globalThis.__app;
 S.cat = JSON.parse(ler("data/cst-cclasstrib.json"));
 S.regras = JSON.parse(ler("data/ncm-regras.json"));
 
@@ -68,6 +68,25 @@ console.log("CSV");
 checar(celulaCsv("=1+1") === `"'=1+1"`, "texto com = não vira fórmula no Excel");
 checar(celulaCsv(12.5) === `"12.5"`, "número continua número");
 checar(celulaCsv('diz "oi"') === `"diz ""oi"""`, "aspas continuam escapadas");
+
+console.log("Exportação por visão");
+const analiseProduto = { status: "div", declCst: "000", declCc: "200003", esperados: [{ cst: "200", cc: "200003" }] };
+S.registros = [
+  { codProd: "7", ncm: "02013000", emitente: "A", desc: "COSTELA", valor: 10.1, analise: analiseProduto },
+  { codProd: "7", ncm: "02013000", emitente: "A", desc: "COSTELA", valor: 0.2, analise: analiseProduto },
+  { codProd: "8", ncm: "34022000", emitente: "A", desc: "SABAO", valor: 5, analise: { status: "ok", declCst: "200", declCc: "200003", esperados: [{ cst: "200", cc: "200003" }] } },
+];
+S.visao = "produto";
+const linhasProduto = gruposExport();
+checar(linhasProduto.length === 2, "visão por código exporta uma linha por código, sem repetir o código");
+checar(
+  linhasProduto.every((l) => l.length === cabecalhoProduto().length),
+  "cada linha tem o número de colunas do cabeçalho"
+);
+checar(linhasProduto[0][4] === 2 && linhasProduto[0][5] === 10.3, "o grupo conta os itens e soma o valor");
+checar(nomeArquivo("xlsx").endsWith(" - Por Código.xlsx"), "o nome do arquivo mostra a visão por código");
+S.visao = "itens";
+checar(nomeArquivo("csv").endsWith(" - Todos os Itens.csv"), "o nome do arquivo mostra todos os itens");
 
 console.log("Limite de pacote");
 // O fflate só avisa o tamanho descompactado dentro do filter; o teste simula a entrada grande.
