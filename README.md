@@ -64,7 +64,8 @@ python -m http.server 8000
    (código do produto do XML, ou a coluna de código da planilha) **e pelo emitente** — o
    mesmo código em fornecedores diferentes não se mistura, e a linha separadora mostra o
    emitente quando o lote tem mais de uma empresa. Cada produto tem uma **linha
-   separadora**: código, NCM, descrição, situação e quantidade de itens. Se o mesmo
+   separadora**: código, NCM, descrição, situação e quantidade de itens, e o código aparece
+   só nessa linha (os itens abaixo não o repetem). Se o mesmo
    produto vier com CST/cClassTrib declarados diferentes em notas diferentes, a
    quantidade aparece em âmbar (*2 tributações declaradas*). Arquivos sem a coluna de
    código são agrupados pelo NCM.

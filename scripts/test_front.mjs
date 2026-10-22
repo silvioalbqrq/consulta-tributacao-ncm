@@ -10,11 +10,11 @@ const ler = (caminho) => readFileSync(new URL(caminho, raiz), "utf8");
 globalThis.document = { addEventListener() {} };
 vm.runInThisContext(
   `${ler("assets/app.js")}
-globalThis.__app = { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo };`,
+globalThis.__app = { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, linhaTabela, grupoLinhas, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo };`,
   { filename: "app.js" }
 );
 
-const { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo } = globalThis.__app;
+const { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, linhaTabela, grupoLinhas, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo } = globalThis.__app;
 S.cat = JSON.parse(ler("data/cst-cclasstrib.json"));
 S.regras = JSON.parse(ler("data/ncm-regras.json"));
 
@@ -85,6 +85,22 @@ checar(
   grupos.find((g) => g.codigo === "1" && g.emitente === "FORNECEDOR A").status === "div",
   "o grupo assume a pior situação"
 );
+
+console.log("Código do produto na visão por código");
+const itemGrupo = {
+  origem: "nota.xml", nota: "10", item: "1", codProd: "2", ncm: "02013000",
+  desc: "COSTELA BOVINA", emitente: "FORNECEDOR A",
+  analise: {
+    status: "div", declCst: "000", declCc: "000001",
+    esperados: [{ cst: "200", cc: "200003" }], principal: { cst: "200", cc: "200003" },
+  },
+};
+const grupo = { codigo: "2", emitente: "FORNECEDOR A", porNcm: false, status: "div", itens: [itemGrupo] };
+const htmlGrupo = grupoLinhas(grupo, new Map([[itemGrupo, 0]]), false);
+const itemHtml = htmlGrupo.slice(htmlGrupo.indexOf("</tr>") + 5);
+checar(htmlGrupo.includes("código do produto 2"), "o cabeçalho do grupo mostra o código");
+checar(!itemHtml.includes("cód. 2"), "os itens do grupo não repetem o código");
+checar(linhaTabela(itemGrupo, 0).includes("cód. 2"), "a visão de todos os itens continua mostrando o código");
 
 console.log("Busca");
 S.registros = [

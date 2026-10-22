@@ -30,7 +30,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.22d";
+const VERSAO = "2026.10.22e";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -1030,7 +1030,7 @@ function grupoLinhas(g, indiceGlobal, mostrarEmitente) {
       <span class="g-qtd${declarados > 1 ? " alerta" : ""}">${g.itens.length} ${
     g.itens.length === 1 ? "item" : "itens"
   }${declarados > 1 ? ` · ${declarados} tributações declaradas` : ""}</span>
-    </td></tr>${g.itens.map((r) => linhaTabela(r, indiceGlobal.get(r))).join("")}`;
+    </td></tr>${g.itens.map((r) => linhaTabela(r, indiceGlobal.get(r), true)).join("")}`;
 }
 
 
@@ -1078,7 +1078,7 @@ function selectCorreto(a, indice) {
   return `<select class="escolha-cc" data-escolha="${indice}" aria-label="Escolher a tributação do item (${a.esperados.length} opções permitidas)">${opts}</select>`;
 }
 
-function linhaTabela(r, indice) {
+function linhaTabela(r, indice, semCodigo) {
   const i = indice;
   const a = r.analise || {};
   const s = SELOS[a.status] || SELOS.revisar;
@@ -1108,7 +1108,7 @@ function linhaTabela(r, indice) {
 
   return `<tr data-i="${i}" tabindex="0">
     <td class="origem"><b title="${esc(r.origem)}">${esc(r.origem)}</b>${notaTxt || "—"}</td>
-    <td class="num"><b>${esc(r.ncm || "—")}</b><div class="produto">${codigoProduto(r)}<span class="desc">${esc(desc) || "—"}</span></div></td>
+    <td class="num"><b>${esc(r.ncm || "—")}</b><div class="produto">${semCodigo ? "" : codigoProduto(r)}<span class="desc">${esc(desc) || "—"}</span></div></td>
     <td class="par"><span class="rotulo">CST / cClassTrib</span><span class="valor">${esc(a.declCst || "—")} <span class="cc">${esc(a.declCc || "—")}</span></span></td>
     <td class="par">${correto}</td>
     <td><span class="selo ${s.classe}">${s.texto}</span>${a.manual ? '<span class="selo info">ajustado</span>' : ""}${alerta}</td>
