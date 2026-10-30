@@ -10,13 +10,14 @@ const ler = (caminho) => readFileSync(new URL(caminho, raiz), "utf8");
 globalThis.document = { addEventListener() {} };
 vm.runInThisContext(
   `${ler("assets/app.js")}
-globalThis.__app = { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, linhaTabela, gruposHtml, resumoGrupo, impressaoProdutos, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo, escolherGrupo };`,
+globalThis.__app = { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, linhaTabela, gruposHtml, resumoGrupo, impressaoProdutos, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, mapearCabecalho, nomeArquivo, escolherGrupo };`,
   { filename: "app.js" }
 );
 
-const { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, linhaTabela, gruposHtml, resumoGrupo, impressaoProdutos, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, nomeArquivo, escolherGrupo } = globalThis.__app;
+const { S, analisarBase, analisarItem, ncmDeCelula, chaveEscolha, lembrarEscolha, reaplicarEscolhas, agruparPorCodigo, linhaTabela, gruposHtml, resumoGrupo, impressaoProdutos, registroFiltrado, celulaCsv, descompactarZip, cabecalhoProduto, gruposExport, mapearCabecalho, nomeArquivo, escolherGrupo } = globalThis.__app;
 S.cat = JSON.parse(ler("data/cst-cclasstrib.json"));
 S.regras = JSON.parse(ler("data/ncm-regras.json"));
+S.desc = JSON.parse(ler("data/ncm-descricoes.json"));
 
 let falhas = 0;
 function checar(cond, msg) {
@@ -31,8 +32,14 @@ console.log("Regra por NCM");
 checar(analisar("19030000", "200", "200003").status === "ok", "19030000 com 200/200003 é conforme");
 checar(analisar("19030000", "000", "200003").status === "div", "CST 000 não serve para cClassTrib 200003");
 checar(analisar("19030000", "200", "000001").status === "div", "cClassTrib 000001 não serve para 19030000");
-checar(analisar("99999999", "000", "000001").status === "sem-regra", "NCM sem anexo + 000001 é integral confirmada");
+checar(analisar("99999999", "000", "000001").status === "invalido", "99999999 não consta na tabela oficial → inválido");
 checar(analisar("", "", "").status === "invalido", "NCM ausente é inválido");
+checar(analisar("22030000", "", "").status === "revisar", "22030000 válido, sem regra e com grupo IBSCBS → revisar");
+checar(
+  analisarBase(item({ ncm: "22030000", cst: "", cc: "", semGrupo: true })).status === "sem-grupo",
+  "22030000 válido, sem regra e sem grupo IBSCBS → sem-grupo"
+);
+checar(analisar("1903", "", "").status === "revisar", "prefixo 1903 com regra única e sem cClassTrib → revisar");
 
 console.log("NCM de planilha numérica");
 checar(ncmDeCelula(1903) === "1903", "NCM de 4 dígitos numérico não ganha zeros à esquerda");
@@ -44,6 +51,13 @@ checar(
   analisar(ncmDeCelula(1903), "200", "200003").status === "ok",
   "NCM 1903 numérico acha a regra da posição"
 );
+
+console.log("Cabeçalhos de planilha (alias de código do produto)");
+checar(mapearCabecalho(["NCM", "Código do produto"]).codProd === 1, '"Código do produto" mapeia codProd');
+checar(mapearCabecalho(["NCM", "Cód. Produto"]).codProd === 1, '"Cód. Produto" mapeia codProd');
+checar(mapearCabecalho(["NCM", "cProd"]).codProd === 1, '"cProd" mapeia codProd');
+checar(mapearCabecalho(["NCM", "xpto"]).codProd === undefined, "cabeçalho desconhecido não mapeia codProd");
+checar(mapearCabecalho(["NCM", "Valor"]).ncm === 0, "NCM ainda mapeia a coluna 0");
 
 console.log("Escolhas manuais");
 S.escolhas.clear();
@@ -214,6 +228,8 @@ S.registros = [
   { codProd: "8", ncm: "34022000", emitente: "A", desc: "SABAO", valor: 5, analise: { status: "ok", declCst: "200", declCc: "200003", esperados: [{ cst: "200", cc: "200003" }] } },
 ];
 S.visao = "produto";
+S.filtro = "todos";
+S.busca = "";
 const linhasProduto = gruposExport();
 checar(linhasProduto.length === 2, "visão por código exporta uma linha por código, sem repetir o código");
 checar(

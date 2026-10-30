@@ -50,7 +50,8 @@ python -m http.server 8000
      internas são lidas e arquivos de sistema, como `__MACOSX` e `~$…`, são ignorados).
    Depois, clique em **Conferir tributação**.
 2. **Conferir um NCM** — digite o código (4 a 8 dígitos) para consultar sem arquivo.
-3. **Filtrar** por divergentes, revisar, conformes, integral (sem regra), alertas de valor
+3. **Filtrar** por divergentes, revisar, conformes, integral (sem regra), **sem grupo IBSCBS**
+   (itens de XML que não trazem o grupo IBSCBS, por isso não conferíveis), alertas de valor
    ou ajustados (itens com tributação escolhida manualmente). A busca aceita **código do
    produto** (`cProd`), NCM, descrição, **emitente**, nota e nome do arquivo, sem
    diferenciar maiúsculas nem acentos.
@@ -80,7 +81,8 @@ python -m http.server 8000
    (`Conferência` e `Corrigida`), uma linha por item, com a coluna **Emitente** ao lado da
    origem. Na visão **por código do produto** sai uma aba (`Por código`) com **uma linha por
    código**, sem repetir o código, trazendo os itens, o valor total e a situação do grupo.
-   A exportação sempre inclui **todos os itens conferidos**, mesmo com um filtro aplicado na tela.
+   A exportação inclui os **itens filtrados** na tela (se houver um filtro ativo); remova o filtro
+   para exportar todos os itens.
    O arquivo baixado e o PDF da impressão terminam com **Todos os Itens** ou **Por Código**,
    conforme a visão escolhida.
 
@@ -114,6 +116,8 @@ correta de cada código.
 - **Limite de segurança**: até 300 MB descompactados por pacote (sem limite de quantidade —
   medido: 3.635 XMLs = 31 MB e ~75 MB de memória). RAR/ZIP protegido por senha não é suportado
   (o site avisa).
+- **CSV**: arquivos em UTF-8 (com ou sem BOM) são lidos corretamente; se não houver BOM, o
+  site tenta UTF-8 primeiro e, falhando, usa Windows-1252.
 
 ## Como a conferência é feita
 
@@ -134,6 +138,18 @@ correta de cada código.
 O NCM é sempre o ponto de partida. A base relaciona **apenas parte dos itens de um mesmo
 NCM** a benefícios; por isso a condição de uso mostrada em cada possibilidade é parte da
 resposta — o site não substitui a análise do produto.
+
+- **NCM inexistente**: códigos de 8 dígitos que não constam na tabela oficial de NCMs são
+  marcados como **NCM inválido** (não confunde com prefixos de 4 a 7 dígitos, que seguem
+  sendo consultados por aproximação).
+
+**Situações possíveis**
+
+- **Conforme / Divergente**: o par CST/cClassTrib declarado bate (ou não) com o esperado para o NCM.
+- **Revisar**: o NCM tem mais de uma possibilidade de cClassTrib e depende da condição de uso; cabe a você escolher.
+- **Integral (sem regra)**: o NCM não tem tratamento específico nos anexos; o esperado é CST 000 / cClassTrib 000001.
+- **Sem grupo IBSCBS**: o item de XML não trouxe o grupo IBSCBS e o NCM não tem regra específica; por isso não é conferível.
+- **NCM inválido**: o código de 8 dígitos não consta na tabela oficial de NCMs.
 
 ## Estrutura
 

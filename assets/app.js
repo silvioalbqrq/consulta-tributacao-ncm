@@ -30,7 +30,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Versão dos assets: ao publicar uma alteração, atualize este valor e o ?v= das
  * tags em index.html. Evita que o navegador use CSS/JS antigos do cache. */
-const VERSAO = "2026.10.22i";
+const VERSAO = "2026.10.29";
 
 const CC_PADRAO = "000001";
 const CST_PADRAO = "000";
@@ -39,7 +39,8 @@ const SELOS = {
   ok: { texto: "Conforme", classe: "ok" },
   div: { texto: "Divergente", classe: "err" },
   revisar: { texto: "Revisar", classe: "warn" },
-  "sem-regra": { texto: "Integral confirmada", classe: "info" },
+  "sem-regra": { texto: "Sem regra (integral)", classe: "info" },
+  "sem-grupo": { texto: "Sem grupo IBSCBS", classe: "info" },
   invalido: { texto: "NCM inválido", classe: "err" },
 };
 
@@ -106,6 +107,9 @@ const ncmDeCelula = (v) => {
   return s.length === 7 ? "0" + s : s;
 };
 
+/** NCM de 8 dígitos que não existe na tabela oficial. Prefixos curtos continuam válidos. */
+const ncmInexistente = (ncm) => ncm.length === 8 && !!S.desc && !!S.desc.i && !S.desc.i[ncm];
+
 /* ------------------------------------------------------------------ */
 /* base de dados                                                       */
 /* ------------------------------------------------------------------ */
@@ -120,7 +124,7 @@ async function carregarBase() {
   }
   mostrarStatus("Carregando base de classificação tributária…", "carregando");
   try {
-    const [cat, regras] = await Promise.all([
+    const [cat, regras, desc] = await Promise.all([
       fetch(`data/cst-cclasstrib.json?v=${VERSAO}`).then((r) => {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
@@ -129,29 +133,24 @@ async function carregarBase() {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       }),
+      // As descrições também validam o NCM; se falharem, o site continua útil.
+      fetch(`data/ncm-descricoes.json?v=${VERSAO}`)
+        .then((r) => {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .catch(() => null),
     ]);
     S.cat = cat;
     S.regras = regras;
+    S.desc = desc;
     preencherMeta();
     mostrarStatus("");
-    carregarDescricoes();
     return true;
   } catch (e) {
     mostrarStatus("Não foi possível carregar a base de dados (" + e.message + ").", "erro");
     return false;
   }
-}
-
-async function carregarDescricoes() {
-  try {
-    const r = await fetch(`data/ncm-descricoes.json?v=${VERSAO}`);
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    S.desc = await r.json();
-  } catch (e) {
-    S.desc = null;
-  }
-  if (S.registros.length) renderizar();
-  if ($("ncmManual").value.trim()) consultarManual();
 }
 
 function preencherMeta() {
@@ -312,6 +311,12 @@ function analisarBase(reg) {
     return analise;
   }
 
+  if (ncmInexistente(ncm)) {
+    analise.status = "invalido";
+    analise.nota = `O NCM ${ncm} não consta na tabela de NCMs. Confira o código.`;
+    return analise;
+  }
+
   if (regra.multiplosNcm && regra.multiplosNcm.length) {
     analise.status = "revisar";
     analise.esperados = [];
@@ -324,7 +329,7 @@ function analisarBase(reg) {
     analise.principal = analise.esperados[0];
     const ccPadrao = analise.esperados[0];
     if (!declCc) {
-      analise.status = "revisar";
+      analise.status = reg.semGrupo ? "sem-grupo" : "revisar";
       analise.nota = reg.semGrupo
         ? "O XML não possui o grupo IBSCBS. Para este NCM sem regra específica, o esperado é CST 000 / cClassTrib 000001."
         : "NCM sem regra específica nos anexos: a tributação é integral (CST 000 / cClassTrib 000001), mas o item não informa cClassTrib.";
@@ -334,7 +339,7 @@ function analisarBase(reg) {
         analise.nota = `cClassTrib 000001 corresponde ao CST ${ccPadrao.cst || CST_PADRAO}, mas o item informa CST ${declCst}.`;
       } else {
         analise.status = "sem-regra";
-        analise.nota = "NCM sem tratamento específico nos anexos: tributação integral confirmada.";
+        analise.nota = "NCM sem tratamento específico nos anexos: tributação integral (padrão).";
       }
     } else {
       analise.status = "div";
@@ -368,7 +373,7 @@ function analisarBase(reg) {
     analise.status = "div";
     analise.nota = `O cClassTrib ${declCc} é VEDADO para este NCM (restrição expressa no anexo).`;
   } else if (!declCc) {
-    analise.status = "revisar";
+    analise.status = reg.semGrupo ? "sem-grupo" : "revisar";
     analise.nota = reg.semGrupo
       ? "O XML não possui o grupo IBSCBS: não há CST nem cClassTrib informados para o item."
       : "Item sem cClassTrib informado. O NCM possui " + (regra.permitidos.length === 1 ? "um cClassTrib aplicável" : "mais de um cClassTrib possível") + ".";
@@ -521,7 +526,7 @@ const ALIAS = [
   ["cstPis", (h) => h.includes("pis")],
   ["cstCofins", (h) => h.includes("cofins")],
   ["cst", (h) => h.includes("cst")],
-  ["codProd", (h) => h.includes("codigo produto") || h.includes("cod produto") || h === "cprod" || h === "codigo" || h === "cod"],
+  ["codProd", (h) => h.includes("cprod") || (h.includes("cod") && h.includes("produto")) || h === "codigo" || h === "cod"],
   ["desc", (h) => h.includes("descricao") || (h.includes("produto") && !h.includes("codigo") && !h.includes("cod produto") && !h.includes("ncm"))],
   ["nota", (h) => h === "nf" || h === "nota" || h.includes("numero nf") || h.includes("numero da nf") || h.includes("numero nota")],
   ["serie", (h) => h.includes("serie")],
@@ -574,9 +579,40 @@ function acharCabecalho(linhas) {
   return melhor >= 0 ? { linha: melhor, mapa: melhorMapa } : null;
 }
 
+let xlsxPronto = null;
+
+/** Carrega o SheetJS só quando alguém envia planilha ou exporta XLSX. */
+function carregarXlsx() {
+  if (window.XLSX) return Promise.resolve();
+  if (xlsxPronto) return xlsxPronto;
+  xlsxPronto = new Promise((ok, erro) => {
+    const s = document.createElement("script");
+    s.src = `assets/vendor/xlsx.full.min.js?v=${VERSAO}`;
+    s.onload = () => ok();
+    s.onerror = () => {
+      xlsxPronto = null;
+      erro(new Error("Não foi possível carregar o leitor de planilhas."));
+    };
+    document.head.appendChild(s);
+  });
+  return xlsxPronto;
+}
+
 async function lerPlanilha(file) {
+  await carregarXlsx();
   const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: "array", cellDates: true, raw: true });
+  // CSV em UTF-8 sem BOM seria lido como Windows-1252 e quebraria acentos/cabeçalhos.
+  let entrada = buf;
+  let tipo = "array";
+  if (extensao(file.name) === "csv") {
+    try {
+      entrada = new TextDecoder("utf-8", { fatal: true }).decode(buf);
+    } catch {
+      entrada = new TextDecoder("windows-1252").decode(buf);
+    }
+    tipo = "string";
+  }
+  const wb = XLSX.read(entrada, { type: tipo, cellDates: true, raw: true });
   const registros = [];
 
   for (const nomeAba of wb.SheetNames) {
@@ -710,11 +746,12 @@ async function processarArquivos() {
 }
 
 function contar() {
-  const c = { total: S.registros.length, ok: 0, div: 0, revisar: 0, semRegra: 0, alertas: 0, ajustados: 0 };
+  const c = { total: S.registros.length, ok: 0, div: 0, revisar: 0, semGrupo: 0, semRegra: 0, alertas: 0, ajustados: 0 };
   for (const r of S.registros) {
     const st = r.analise ? r.analise.status : "revisar";
     if (st === "ok") c.ok++;
     else if (st === "sem-regra") c.semRegra++;
+    else if (st === "sem-grupo") c.semGrupo++;
     else if (st === "revisar") c.revisar++;
     else c.div++;
     if (r.analise && r.analise.alertas.length) c.alertas++;
@@ -747,6 +784,7 @@ function resumoStatus() {
   if (!S.registros.length) return;
   const c = contar();
   let msg = `${c.total} item(ns) de ${S.arquivos.length} arquivo(s) conferido(s): ${c.div} divergência(s), ${c.revisar} para revisar.`;
+  if (c.semGrupo) msg += ` ${c.semGrupo} sem grupo IBSCBS (não conferível).`;
   if (c.ajustados) msg += ` ${c.ajustados} com tributação escolhida manualmente.`;
   if (c.alertas) msg += ` ${c.alertas} item(ns) com alerta de valor.`;
   if (S.errosLeitura.length) msg += ` Falha ao ler ${S.errosLeitura.length} arquivo(s): ${S.errosLeitura.join(" | ")}`;
@@ -758,6 +796,7 @@ function registroFiltrado(r) {
   const a = r.analise || {};
   if (S.filtro === "div" && !["div", "invalido"].includes(a.status)) return false;
   if (S.filtro === "revisar" && a.status !== "revisar") return false;
+  if (S.filtro === "sem-grupo" && a.status !== "sem-grupo") return false;
   if (S.filtro === "ok" && a.status !== "ok") return false;
   if (S.filtro === "sem-regra" && a.status !== "sem-regra") return false;
   if (S.filtro === "alerta" && !(a.alertas && a.alertas.length)) return false;
@@ -822,6 +861,7 @@ function renderizar() {
     ["alerta", "Alerta de valor", c.alertas],
   ];
   if (c.ajustados) defsChips.push(["ajustados", "Ajustados", c.ajustados]);
+  if (c.semGrupo) defsChips.push(["sem-grupo", "Sem grupo", c.semGrupo]);
   const chips = defsChips
     .map(
       ([id, rotulo, n]) =>
@@ -835,6 +875,7 @@ function renderizar() {
       ${kpi("ok", c.ok, "Conformes")}
       ${kpi("err", c.div, "Divergentes")}
       ${kpi("warn", c.revisar, "Revisar")}
+      ${c.semGrupo ? kpi("", c.semGrupo, "Sem grupo IBSCBS") : ""}
       ${kpi("", c.semRegra, "Integral (sem regra)")}
       ${kpi("warn", c.alertas, "Alertas de valor")}
     </div>
@@ -842,8 +883,8 @@ function renderizar() {
       <div class="filtros" role="group" aria-label="Filtrar resultados">${chips}</div>
       <div class="busca-resultado">
         <input id="buscaResultado" type="search" placeholder="Filtrar por NCM, código, produto, nota…" value="${esc(S.busca)}" aria-label="Filtrar resultados">
-        <button type="button" class="btn" id="btnCsv" title="Exporta a visão escolhida: todos os itens ou por código do produto">CSV</button>
-        <button type="button" class="btn dourado" id="btnXlsx" title="Exporta a visão escolhida: todos os itens ou por código do produto">Baixar planilha</button>
+        <button type="button" class="btn" id="btnCsv" title="Exporta os itens filtrados na visão escolhida">CSV</button>
+        <button type="button" class="btn dourado" id="btnXlsx" title="Exporta os itens filtrados na visão escolhida">Baixar planilha</button>
         <button type="button" class="btn" id="btnImprimir" title="Imprime a visão escolhida (lista filtrada, não só esta página)">Imprimir</button>
       </div>
     </div>
@@ -1112,7 +1153,7 @@ function selectGrupo(g, opcoes) {
 
 /** Agrupa por emitente + código do produto (cProd); sem o código, por emitente + NCM. */
 function agruparPorCodigo(lista) {
-  const ordem = { div: 0, invalido: 1, revisar: 2, ok: 3, "sem-regra": 4 };
+  const ordem = { div: 0, invalido: 1, revisar: 2, "sem-grupo": 3, ok: 4, "sem-regra": 5 };
   const peso = (status) => ordem[status] ?? 9;
   const mapa = new Map();
   for (const r of lista) {
@@ -1167,7 +1208,7 @@ function linhaTabela(r, indice) {
   let correto = "";
   if (a.esperados && a.esperados.length) {
     const e = a.principal || a.esperados[0];
-    if (a.status === "revisar") {
+    if (a.status === "revisar" || a.status === "sem-grupo") {
       const par = a.esperados.length === 1
         ? `<span class="valor">${esc(e.cst)} <span class="cc">${esc(e.cc)}</span></span>`
         : "";
@@ -1193,13 +1234,17 @@ function linhaTabela(r, indice) {
     a.alertas && a.alertas.length
       ? `<span class="alerta" title="${esc(a.alertas.join(" "))}">⚠ valor</span>`
       : "";
+  const motivo =
+    (a.status === "div" || a.status === "invalido") && a.nota
+      ? `<span class="motivo">${esc(a.nota)}</span>`
+      : "";
 
   return `<tr data-i="${i}" tabindex="0">
     <td class="origem"><b title="${esc(r.origem)}">${esc(r.origem)}</b>${notaTxt || "—"}</td>
     <td class="num"><b>${esc(r.ncm || "—")}</b><div class="produto">${codigoProduto(r)}<span class="desc">${esc(desc) || "—"}</span></div></td>
     <td class="par"><span class="rotulo">CST / cClassTrib</span><span class="valor">${esc(a.declCst || "—")} <span class="cc">${esc(a.declCc || "—")}</span></span></td>
     <td class="par">${correto}</td>
-    <td><span class="selo ${s.classe}">${s.texto}</span>${a.manual ? '<span class="selo info">ajustado</span>' : ""}${alerta}</td>
+    <td><span class="selo ${s.classe}">${s.texto}</span>${a.manual ? '<span class="selo info">ajustado</span>' : ""}${alerta}${motivo}</td>
   </tr>`;
 }
 
@@ -1429,6 +1474,15 @@ function consultarManual() {
     return;
   }
 
+  if (ncmInexistente(cod)) {
+    alvo.innerHTML = `<div class="caixa">
+      <span class="titulo">NCM ${esc(cod)}</span>
+      <div class="linha">NCM não encontrado</div>
+      <div class="nome">O código não consta na tabela de NCMs. Confira os 8 dígitos.</div>
+    </div>`;
+    return;
+  }
+
   const regra = regrasDoNcm(cod);
   const desc = descNcm(regra.chave || cod);
 
@@ -1533,7 +1587,7 @@ function celulaCsv(c) {
 
 function exportarCsv() {
   const produto = S.visao === "produto";
-  const dados = produto ? [cabecalhoProduto(), ...gruposExport()] : [cabecalho(), ...S.registros.map(linhaExport)];
+  const dados = produto ? [cabecalhoProduto(), ...gruposExport()] : [cabecalho(), ...S.registros.filter(registroFiltrado).map(linhaExport)];
   const csv = dados.map((linha) => linha.map(celulaCsv).join(";")).join("\r\n");
   baixar(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }), nomeArquivo("csv"));
 }
@@ -1569,10 +1623,16 @@ function linhaGrupoExport(g) {
 }
 
 function gruposExport() {
-  return agruparPorCodigo(S.registros).map(linhaGrupoExport);
+  return agruparPorCodigo(S.registros.filter(registroFiltrado)).map(linhaGrupoExport);
 }
 
-function exportarXlsx() {
+async function exportarXlsx() {
+  try {
+    await carregarXlsx();
+  } catch (e) {
+    mostrarStatus(e.message, "erro");
+    return;
+  }
   const wb = XLSX.utils.book_new();
   if (S.visao === "produto") {
     const dados = [cabecalhoProduto(), ...gruposExport()];
@@ -1588,7 +1648,7 @@ function exportarXlsx() {
     return;
   }
 
-  const todos = S.registros;
+  const todos = S.registros.filter(registroFiltrado);
   const ws = XLSX.utils.aoa_to_sheet([cabecalho(), ...todos.map(linhaExport)]);
   ws["!cols"] = [
     { wch: 28 }, { wch: 30 }, { wch: 12 }, { wch: 9 }, { wch: 7 }, { wch: 6 }, { wch: 14 }, { wch: 11 }, { wch: 42 },
@@ -1655,6 +1715,7 @@ const ROTULO_FILTRO = {
   todos: "Todos",
   div: "Divergentes",
   revisar: "Revisar",
+  "sem-grupo": "Sem grupo IBSCBS",
   ok: "Conformes",
   "sem-regra": "Integral (sem regra)",
   alerta: "Alerta de valor",

@@ -8,7 +8,7 @@
 <meta property="og:title" content="Conferência IBS/CBS — NCM × CST × cClassTrib">
 <meta property="og:description" content="Upload de XML (NF-e/NFC-e), planilha, pasta inteira ou arquivo .zip/.rar para conferir CST e cClassTrib por NCM na base oficial do IBS/CBS.">
 <meta property="og:type" content="website">
-<link rel="stylesheet" href="assets/styles.css?v=2026.10.22i">
+<link rel="stylesheet" href="assets/styles.css?v=2026.10.29">
 </head>
 <body>
 
@@ -36,14 +36,14 @@
       </header>
       <p class="ajuda">XML de NF-e/NFC-e (pode enviar vários de uma vez), planilha <b>.xlsx</b>, <b>.xls</b> ou <b>.csv</b> com uma coluna de NCM, ou um arquivo compactado <b>.zip</b> / <b>.rar</b> com esses arquivos dentro.</p>
 
-      <div class="zona" id="zona" tabindex="0" role="button" aria-label="Selecionar arquivos XML, planilha, pasta ou compactado">
+      <div class="zona" id="zona" tabindex="0" role="button">
         <div class="icone" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         </div>
         <strong>Arraste os arquivos aqui ou clique para selecionar</strong>
         <span>XML · XLSX · XLS · CSV · ZIP · RAR</span>
         <small>Arraste também uma pasta inteira ou um arquivo compactado; as subpastas são lidas.</small>
-        <input type="file" id="arquivos" multiple accept=".xml,.xlsx,.xls,.csv,.zip,.rar,text/xml,application/xml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,application/zip,application/x-rar-compressed">
+        <input type="file" id="arquivos" multiple aria-label="Arquivos para conferência" accept=".xml,.xlsx,.xls,.csv,.zip,.rar,text/xml,application/xml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,application/zip,application/x-rar-compressed">
       </div>
 
       <div class="atalhos">
@@ -52,7 +52,7 @@
           Escolher uma pasta
         </button>
         <span class="nota">Lê todos os XML e planilhas da pasta (inclusive subpastas) e os .zip / .rar.</span>
-        <input type="file" id="arquivosPasta" webkitdirectory directory multiple hidden>
+        <input type="file" id="arquivosPasta" webkitdirectory directory multiple hidden aria-label="Pasta para conferência">
       </div>
 
       <ul class="lista-arquivos" id="listaArquivos" hidden></ul>
@@ -102,26 +102,26 @@
   <div class="wrap">
     <div class="cols">
       <div>
-        <h4>Como o cálculo é feito</h4>
+        <h3>Como o cálculo é feito</h3>
         <p>O NCM de cada item é procurado nos anexos da classificação tributária do IBS/CBS.</p>
         <p>Sem vínculo nos anexos, a tributação é integral (CST 000 / cClassTrib 000001).</p>
         <p>Com vínculo, o site compara o par declarado com as possibilidades <b>permitidas</b> e mostra as <b>vedadas</b> quando existirem.</p>
         <p>Quando o NCM tem mais de uma possibilidade, você pode <b>escolher a tributação do item</b> na coluna <i>Correto</i> (ou no detalhe, em “Usar esta tributação”); a escolha vai para a planilha corrigida.</p>
       </div>
       <div>
-        <h4>Fonte dos dados</h4>
+        <h3>Fonte dos dados</h3>
         <p>Portal da Conformidade Fácil — SEFAZ-RS</p>
         <p><a id="linkPortal" href="https://dfe-portal.svrs.rs.gov.br/CFF/ClassificacaoTributaria" target="_blank" rel="noopener">dfe-portal.svrs.rs.gov.br/CFF/ClassificacaoTributaria</a></p>
         <p>Espelho de consulta: <a id="linkEspelho" href="https://silvioalbqrq.github.io/cst-cclasstrib/" target="_blank" rel="noopener">silvioalbqrq.github.io/cst-cclasstrib</a></p>
       </div>
       <div>
-        <h4>Privacidade</h4>
+        <h3>Privacidade</h3>
         <p>Os arquivos são lidos localmente pelo navegador.</p>
         <p>Nada é enviado, gravado ou compartilhado.</p>
         <p>Para atualizar a base: <code>python scripts/atualizar_base.py</code></p>
       </div>
       <div>
-        <h4>Contato</h4>
+        <h3>Contato</h3>
         <p>Dúvidas, sugestões de NCM ou divergência na base? Fale comigo.</p>
         <div class="contact-icons">
           <a href="mailto:silvio.albqrq@gmail.com" aria-label="E-mail silvio.albqrq@gmail.com" title="E-mail"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5h20v14H2z" fill="none" stroke="currentColor" stroke-width="2"/><path d="m2 7 10 6L22 7" fill="none" stroke="currentColor" stroke-width="2"/></svg></a>
@@ -130,7 +130,7 @@
         </div>
       </div>
       <div>
-        <h4>Ajuda</h4>
+        <h3>Ajuda</h3>
         <p>Pix: <code class="donate-code" id="pix-chave" data-full="8eea81fc-cb40-4150-91fa-6ca829ada37f" title="8eea81fc-cb40-4150-91fa-6ca829ada37f">8eea81fc…da37f</code> <button class="btn btn-sm" data-copy="pix-chave" type="button">Copiar</button><br><small><a href="#" data-reveal="pix-chave" data-rotulo="ver chave completa" class="reveal-link">ver chave completa</a></small></p>
         <p>Lightning: <code class="donate-code" id="ln-address" data-full="lnbc1p4tt3ccpp5fntekr0ya4r4zd6durklrznte0zsg5jv3zcv83sss4u4efd8d7gsdqqcqzzsxqrrsssp5xg8m0ydtzqprnym2ruqp4260au726czc86p5y2mpl575mp8avdcs9qxpqysgqsjawffjrlkwpa77wf9zvsjx99z833h0dvjqjh0nxqph75rrkghrhzrfwdhj0fqt57l0nwl69c2sgutmm40mgzhkmqy9dpzcje69u09qpaewhvg" title="Invoice única — clique em copiar">lnbc1p4…paewhvg (invoice única)</code> <button class="btn btn-sm" data-copy="ln-address" type="button">Copiar</button><br><small><a href="#" data-reveal="ln-address" data-rotulo="ver invoice completa" class="reveal-link">ver invoice completa</a></small></p>
       </div>
@@ -139,8 +139,7 @@
   </div>
 </footer>
 
-<script src="assets/vendor/xlsx.full.min.js?v=2026.10.22i"></script>
-<script src="assets/vendor/fflate.min.js?v=2026.10.22i"></script>
-<script src="assets/app.js?v=2026.10.22i"></script>
+<script src="assets/vendor/fflate.min.js?v=2026.10.29"></script>
+<script src="assets/app.js?v=2026.10.29"></script>
 </body>
 </html>
