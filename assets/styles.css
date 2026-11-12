@@ -104,7 +104,7 @@ section { scroll-margin-top: 16px; }
   margin-right: 8px;
   border-radius: 50%;
   background: var(--navy);
-  color: var(--amber);
+  color: var(--emerald-light);
   font-size: 12px;
   vertical-align: 1px;
 }
@@ -135,7 +135,7 @@ section { scroll-margin-top: 16px; }
   margin: 0 auto 10px;
   border-radius: 10px;
   background: var(--navy);
-  color: var(--amber);
+  color: #ffffff;
   display: grid;
   place-items: center;
 }
@@ -263,12 +263,12 @@ section { scroll-margin-top: 16px; }
 .btn.primario:hover { background: var(--blue-dark); border-color: var(--blue-dark); color: #fff; }
 
 .btn.dourado {
-  background: var(--amber);
-  border-color: var(--amber);
-  color: #2a2205;
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #ffffff;
 }
 
-.btn.dourado:hover { background: #d8b23a; border-color: #d8b23a; }
+.btn.dourado:hover { background: var(--navy2); border-color: var(--navy2); color: #ffffff; }
 
 .btn.icone { padding: 8px 10px; }
 
