@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Conferência IBS/CBS · NCM">
+  <rect width="64" height="64" rx="14" fill="#ffffff"/>
+  <g fill="#0b1f3a">
+    <rect x="15" y="15" width="2" height="22" rx="1"/>
+    <rect x="19.5" y="15" width="3.5" height="22" rx="1"/>
+    <rect x="25" y="15" width="2" height="22" rx="1"/>
+    <rect x="29" y="15" width="4.5" height="22" rx="1"/>
+    <rect x="35.5" y="15" width="2" height="22" rx="1"/>
+    <rect x="39.5" y="15" width="3.5" height="22" rx="1"/>
+    <rect x="45" y="15" width="2" height="22" rx="1"/>
+  </g>
+  <circle cx="47" cy="47" r="10" fill="#0f9f6e"/>
+  <path d="M42.5 47.2 l3.2 3.2 l6.2-6.4" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
